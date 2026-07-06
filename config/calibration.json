@@ -1,0 +1,54 @@
+{
+ "approval": {
+  "B": 5,
+  "C": 1,
+  "A": 1
+ },
+ "reject": {
+  "A": 1
+ },
+ "total_keputusan": 8,
+ "skenario_favorit": "B",
+ "catatan": [
+  {
+   "opsi": "B",
+   "aksi": "approve",
+   "catatan": "Pilih quality-safe, buyer CV4200 sedang sensitif klaim"
+  },
+  {
+   "opsi": "A",
+   "aksi": "reject",
+   "catatan": "Terlalu banyak brand di batas reject"
+  },
+  {
+   "opsi": "B",
+   "aksi": "approve",
+   "catatan": "quality-safe sesuai kondisi buyer"
+  },
+  {
+   "opsi": "C",
+   "aksi": "approve",
+   "catatan": "Balanced dipilih; override stok Sambarata sudah masuk"
+  },
+  {
+   "opsi": "B",
+   "aksi": "approve",
+   "catatan": "feasible utk buyer eksisting"
+  },
+  {
+   "opsi": "B",
+   "aksi": "approve",
+   "catatan": "x"
+  },
+  {
+   "opsi": "B",
+   "aksi": "approve",
+   "catatan": "feasible utk buyer eksisting"
+  },
+  {
+   "opsi": "A",
+   "aksi": "approve",
+   "catatan": "demand baru feasible"
+  }
+ ]
+}

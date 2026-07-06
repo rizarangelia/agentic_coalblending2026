@@ -1,0 +1,133 @@
+"""Agent 3 — Blending Generator (The Core).
+LP deterministik (PuLP/CBC). LLM tidak pernah menghasilkan angka — hanya menarasikan hasil.
+Fitur kunci: infeasibility DIAGNOSER (elastic re-solve) -> relaksasi minimum per constraint.
+"""
+import pulp
+
+def _base_model(C, elastic=False):
+    sites, brands = C['sites'], C['brands']
+    m = pulp.LpProblem('coalblend', pulp.LpMaximize)
+    x = {(s, b): pulp.LpVariable(f'x_{s}_{b}'.replace(' ', '_'), lowBound=0) for s in sites for b in brands}
+    slack = {}
+
+    def S(name, lb=0):
+        slack[name] = pulp.LpVariable('sl_' + name.replace(' ', '_'), lowBound=lb)
+        return slack[name]
+
+    for s in sites:
+        for b in brands:
+            if not C['allowance'][s][b]:
+                m += x[s, b] == 0, f'M5_{s}_{b}'
+    for b in brands:
+        tot = pulp.lpSum(x[s, b] for s in sites)
+        eng = pulp.lpSum(x[s, b] * C['cv_site'][s] for s in sites)
+        m += tot + (S(f'M1 deal {b}') if elastic else 0) >= C['deal'][b], f'M1_{b}'
+        m += tot <= C['deal_multiplier'] * C['deal'][b] + (S(f'M2 max {b}') if elastic else 0), f'M2_{b}'
+        m += eng + (S(f'M6 cvmin {b}') if elastic else 0) >= C['cv_min'][b] * tot, f'M6_{b}'
+        m += eng <= C['cv_max'][b] * tot + (S(f'M7 cvmax {b}') if elastic else 0), f'M7_{b}'
+    for s in sites:
+        ship = pulp.lpSum(x[s, b] for b in brands)
+        m += ship <= C['available'][s], f'M3_{s}'
+        m += C['available'][s] - ship + (S(f'M8 csmin {s}') if elastic else 0) >= C['cs_min'][s], f'M8_{s}'
+        m += C['available'][s] - ship <= C['cs_max'][s] + (S(f'M9 csmax {s}') if elastic else 0), f'M9_{s}'
+    m += pulp.lpSum(x[s, b] for s in sites for b in brands) <= C['total_capacity'] + (S('M4 total') if elastic else 0), 'M4'
+
+    revenue = pulp.lpSum(pulp.lpSum(x[s, b] * C['cv_site'][s] for s in sites) / C['cv_max'][b] * C['price'][b] for b in brands)
+    return m, x, slack, revenue
+
+def solve(C):
+    alerts = []
+    m, x, _, revenue = _base_model(C)
+    m += revenue
+    m.solve(pulp.PULP_CBC_CMD(msg=0))
+    if pulp.LpStatus[m.status] != 'Optimal':
+        # DIAGNOSER: minimasi total slack -> relaksasi minimum yang membuat feasible
+        md, _, slack, _ = _base_model(C, elastic=True)
+        md.sense = pulp.LpMinimize
+        md += pulp.lpSum(slack.values())
+        md.solve(pulp.PULP_CBC_CMD(msg=0))
+        diag = sorted(((n, v.value()) for n, v in slack.items() if v.value() and v.value() > 1e-6),
+                      key=lambda t: -t[1])
+        for n, v in diag:
+            alerts.append(('CRITICAL', 'OPTIMIZER',
+                           f'INFEASIBLE — konstrain "{n}" butuh relaksasi minimum ±{v:,.0f} agar solvable.'))
+        if not diag:
+            alerts.append(('CRITICAL', 'OPTIMIZER', 'INFEASIBLE — diagnosis slack tidak konklusif; cek data input.'))
+        return None, alerts
+
+    sol = {'status': 'Optimal', 'revenue': pulp.value(m.objective),
+           'x': {s: {b: x[s, b].value() or 0 for b in C['brands']} for s in C['sites']}}
+    # shadow prices (dual values) — nilai marginal konstrain, gratis dari LP
+    def _pi(name):
+        k = name.replace(' ', '_')
+        return round(m.constraints[k].pi, 4) if k in m.constraints else None
+    sol['shadow'] = {
+        'total_capacity': _pi('M4'),
+        'deal': {b: _pi(f'M1_{b}') for b in C['brands']},
+        'available': {s: _pi(f'M3_{s}') for s in C['sites']},
+        'cs_min': {s: _pi(f'M8_{s}') for s in C['sites']},
+        'cs_max': {s: _pi(f'M9_{s}') for s in C['sites']},
+    }
+    sol['brand_total'] = {b: sum(sol['x'][s][b] for s in C['sites']) for b in C['brands']}
+    sol['brand_cv'] = {b: (sum(sol['x'][s][b] * C['cv_site'][s] for s in C['sites']) / t if (t := sol['brand_total'][b]) else 0)
+                       for b in C['brands']}
+    sol['brand_revenue'] = {b: sum(sol['x'][s][b] * C['cv_site'][s] for s in C['sites']) / C['cv_max'][b] * C['price'][b]
+                            for b in C['brands']}
+    sol['optimize'] = {b: sol['brand_total'][b] - C['deal'][b] for b in C['brands']}
+    sol['site_ship'] = {s: sum(sol['x'][s][b] for b in C['brands']) for s in C['sites']}
+    sol['closing'] = {s: C['available'][s] - sol['site_ship'][s] for s in C['sites']}
+    sol['total_ship'] = sum(sol['site_ship'].values())
+
+    # post-solve alerts
+    for b in C['brands']:
+        if sol['brand_total'][b] > 0 and abs(sol['brand_cv'][b] - C['cv_min'][b]) < 1:
+            alerts.append(('WARNING', 'COMMERCIAL',
+                           f'{b}: CV blend {sol["brand_cv"][b]:,.0f} tepat DI BATAS REJECT — zero margin kualitas, risiko klaim buyer.'))
+    for s in C['sites']:
+        if sol['site_ship'][s] > C['jetty_capacity'][s] + 1:
+            alerts.append(('WARNING', 'LOGISTIK',
+                           f'{s}: blending {sol["site_ship"][s]:,.0f} melebihi kapasitas jetty {C["jetty_capacity"][s]:,.0f} '
+                           f'(Model 4 total-only; verifikasi outloading site ini).'))
+        if abs(sol['closing'][s] - C['cs_max'][s]) < 1:
+            alerts.append(('INFO', 'STOCK', f'{s}: closing stock mentok di MAX band ({C["cs_max"][s]:,.0f}).'))
+        if abs(sol['closing'][s] - C['cs_min'][s]) < 1:
+            alerts.append(('INFO', 'STOCK', f'{s}: closing stock mentok di MIN band ({C["cs_min"][s]:,.0f}).'))
+    return sol, alerts
+
+
+# ---------- Human-in-the-Loop: multi-skenario ----------
+import copy
+
+def solve_scenarios(C):
+    """3 opsi kanonik — SATU tuas per opsi agar trade-off teratribusi bersih.
+    A Max Revenue (murni) · B Quality-Safe (cv_min +25 saja) · C Evakuasi (closing GMO/BMO3 = min).
+    Angka 100% dari solver."""
+    out = []
+
+    def run(cid, nama, desc, Cx):
+        sol, al = solve(Cx)
+        out.append({'id': cid, 'nama': nama, 'desc': desc, 'sol': sol, 'alerts': al,
+                    'revenue': sol['revenue'] if sol else None})
+
+    run('A', 'Max Revenue (Baseline)',
+        'Model 1-9 murni. Revenue tertinggi; konsekuensi: beberapa brand tepat di batas reject.', C)
+
+    C2 = copy.deepcopy(C)
+    C2['cv_min'] = {b: v + 25 for b, v in C['cv_min'].items()}
+    run('B', 'Quality-Safe (buffer +25 GAR)',
+        'Satu tuas: CV blend minimal +25 di atas reject. Margin klaim buyer; revenue sedikit turun.', C2)
+
+    C3 = copy.deepcopy(C)
+    for s in ('Gurimbang', 'BMO3'):
+        if s in C3['cs_max']:
+            C3['cs_max'][s] = C3['cs_min'][s]
+    run('C', 'Evakuasi Stok Site Kritis',
+        'Satu tuas: closing Gurimbang & BMO 3 dipaksa ke MIN band (konteks reclaim tunnel).', C3)
+
+    base = out[0]['revenue']
+    for sc in out:
+        sc['delta'] = (sc['revenue'] - base) if (sc['revenue'] is not None and base) else None
+        if sc['sol']:
+            sc['n_reject'] = sum(1 for b in C['brands']
+                                 if sc['sol']['brand_total'][b] > 0 and abs(sc['sol']['brand_cv'][b] - C['cv_min'][b]) < 1)
+    return out

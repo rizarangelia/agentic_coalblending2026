@@ -1,0 +1,6 @@
+# CoalBlend AI — MVP 1 (Multi-Agent Coal Blending Optimizer)
+# Python 3.10+ direkomendasikan (teruji di 3.12)
+
+Flask>=3.0          # web app: login, input data, review HITL, endpoint keputusan
+PuLP>=2.8           # LP solver (menyertakan binary CBC bawaan — tidak perlu instal solver terpisah)
+openpyxl>=3.1       # membaca input .xlsx (CSV dibaca modul standar, tanpa dependensi)

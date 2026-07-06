@@ -1,0 +1,233 @@
+{
+  "_meta": {
+    "nama": "CoalBlend AI MVP 1 - Constraint Manifest",
+    "versi": "1.1",
+    "catatan": "Nilai bertanda simulasi=true adalah contoh dari sheet 'Contoh Model' dan WAJIB ditimpa data runtime dari 4 file input. Struktur & aturan bersifat tetap.",
+    "baseline_validasi_revenue": 24225858.52,
+    "changelog": "v1.1: allowance CV 3800 hanya Gurimbang & BMO 3 (Binsua dicabut) — keputusan bisnis, meng-override sheet simulasi."
+  },
+  "sites": [
+    "Lati",
+    "Binsua",
+    "Sambarata",
+    "Gurimbang",
+    "BMO3"
+  ],
+  "brands": [
+    "Eboni",
+    "Mahoni B",
+    "Agathis",
+    "Sungkai",
+    "Sungkai B",
+    "CV 4600",
+    "CV 4200",
+    "CV 3800"
+  ],
+  "allowance_matrix": {
+    "Lati": {
+      "Eboni": 0,
+      "Mahoni B": 1,
+      "Agathis": 1,
+      "Sungkai": 1,
+      "Sungkai B": 1,
+      "CV 4600": 1,
+      "CV 4200": 1,
+      "CV 3800": 0
+    },
+    "Binsua": {
+      "Eboni": 1,
+      "Mahoni B": 1,
+      "Agathis": 1,
+      "Sungkai": 1,
+      "Sungkai B": 1,
+      "CV 4600": 1,
+      "CV 4200": 1,
+      "CV 3800": 0
+    },
+    "Sambarata": {
+      "Eboni": 1,
+      "Mahoni B": 1,
+      "Agathis": 1,
+      "Sungkai": 0,
+      "Sungkai B": 0,
+      "CV 4600": 0,
+      "CV 4200": 0,
+      "CV 3800": 0
+    },
+    "Gurimbang": {
+      "Eboni": 0,
+      "Mahoni B": 0,
+      "Agathis": 0,
+      "Sungkai": 0,
+      "Sungkai B": 1,
+      "CV 4600": 1,
+      "CV 4200": 1,
+      "CV 3800": 1
+    },
+    "BMO3": {
+      "Eboni": 0,
+      "Mahoni B": 0,
+      "Agathis": 0,
+      "Sungkai": 0,
+      "Sungkai B": 0,
+      "CV 4600": 1,
+      "CV 4200": 1,
+      "CV 3800": 1
+    }
+  },
+  "brand_spec": {
+    "Eboni": {
+      "cv_min_reject": 5600,
+      "cv_max_typical": 5800,
+      "base_price_simulasi": 15
+    },
+    "Mahoni B": {
+      "cv_min_reject": 5100,
+      "cv_max_typical": 5300,
+      "base_price_simulasi": 12
+    },
+    "Agathis": {
+      "cv_min_reject": 4900,
+      "cv_max_typical": 5100,
+      "base_price_simulasi": 10
+    },
+    "Sungkai": {
+      "cv_min_reject": 4800,
+      "cv_max_typical": 5000,
+      "base_price_simulasi": 8
+    },
+    "Sungkai B": {
+      "cv_min_reject": 4600,
+      "cv_max_typical": 4800,
+      "base_price_simulasi": 6
+    },
+    "CV 4600": {
+      "cv_min_reject": 4400,
+      "cv_max_typical": 4600,
+      "base_price_simulasi": 4
+    },
+    "CV 4200": {
+      "cv_min_reject": 3900,
+      "cv_max_typical": 4200,
+      "base_price_simulasi": 3
+    },
+    "CV 3800": {
+      "cv_min_reject": 3600,
+      "cv_max_typical": 3800,
+      "base_price_simulasi": 2
+    }
+  },
+  "constraints": {
+    "model_1": {
+      "rule": "total_brand >= deal",
+      "hard": true
+    },
+    "model_2": {
+      "rule": "total_brand <= multiplier * deal",
+      "multiplier": 4,
+      "hard": true
+    },
+    "model_3": {
+      "rule": "total_site <= available_site",
+      "hard": true
+    },
+    "model_4": {
+      "rule": "grand_total <= total_plan_kapasitas",
+      "scope": "TOTAL_ONLY",
+      "hard": true,
+      "warning_check": "per_jetty (non-binding, flag di dashboard jika terlampaui)"
+    },
+    "model_5": {
+      "rule": "x=0 jika allowance=0",
+      "hard": true
+    },
+    "model_6": {
+      "rule": "weighted_cv_brand >= cv_min_reject",
+      "toleransi_tambahan": 0,
+      "hard": true
+    },
+    "model_7": {
+      "rule": "weighted_cv_brand <= cv_max_typical",
+      "hard": true
+    },
+    "model_8": {
+      "rule": "closing_site >= cs_min",
+      "hard": true
+    },
+    "model_9": {
+      "rule": "closing_site <= cs_max",
+      "hard": true
+    }
+  },
+  "closing_stock_band_simulasi": {
+    "Lati": {
+      "min": 100000,
+      "max": 250000
+    },
+    "Binsua": {
+      "min": 60000,
+      "max": 150000
+    },
+    "Sambarata": {
+      "min": 100000,
+      "max": 250000
+    },
+    "Gurimbang": {
+      "min": 20000,
+      "max": 50000
+    },
+    "BMO3": {
+      "min": 10000,
+      "max": 25000
+    }
+  },
+  "input_runtime": {
+    "opening_stock": {
+      "file": "opening stock status.xls",
+      "kolom": [
+        "site",
+        "volume_mt",
+        "cv_gar"
+      ],
+      "cadence": "tanggal 1"
+    },
+    "coal_getting": {
+      "file": "R3MMP.xls",
+      "kolom": [
+        "site",
+        "volume_mt",
+        "cv_gar"
+      ],
+      "cadence": "tanggal 3-5"
+    },
+    "barging": {
+      "file": "Cargo supply.xls",
+      "kolom": [
+        "origin",
+        "trips",
+        "volume_mt"
+      ],
+      "cadence": "awal bulan"
+    },
+    "demand_deal": {
+      "file": "Sold shipment.xls",
+      "kolom": [
+        "brand",
+        "volume_deal_mt"
+      ],
+      "cadence": "awal bulan"
+    },
+    "plan_kapasitas": {
+      "sumber": "input planner",
+      "kolom": [
+        "jetty",
+        "kapasitas_mt"
+      ]
+    }
+  },
+  "objective": {
+    "formula": "maximize sum_brand( energi_brand / cv_max_typical * base_price )",
+    "energi_brand": "SUMPRODUCT(x[site,brand] * cv_site)",
+    "catatan": "base_price MVP1 = dummy simulasi; pricing dinamis = MVP2"
+  }
+}

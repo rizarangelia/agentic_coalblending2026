@@ -1,0 +1,33 @@
+{
+  "objective_revenue": 24225858.52,
+  "total_shipment": 3000000,
+  "brand_totals": {
+    "Eboni": 280000,
+    "Mahoni B": 780000,
+    "Agathis": 260000,
+    "Sungkai": 508864,
+    "Sungkai B": 290000,
+    "CV 4600": 260000,
+    "CV 4200": 361136,
+    "CV 3800": 260000
+  },
+  "brand_cv": {
+    "Eboni": 5800,
+    "Mahoni B": 5272,
+    "Agathis": 4950,
+    "Sungkai": 4950,
+    "Sungkai B": 4600,
+    "CV 4600": 4400,
+    "CV 4200": 3900,
+    "CV 3800": 3600
+  },
+  "closing_stock": {
+    "Lati": 175000,
+    "Binsua": 150000,
+    "Sambarata": 100000,
+    "Gurimbang": 50000,
+    "BMO3": 25000
+  },
+  "catatan": "Toleransi validasi: objective +-1; brand totals dapat bergeser pada alternate optima non-binding",
+  "catatan_v11": "Divalidasi ulang setelah allowance v1.1 (CV 3800 hanya Gurimbang & BMO 3)"
+}
