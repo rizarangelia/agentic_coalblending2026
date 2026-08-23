@@ -32,6 +32,31 @@ dilewatkan ke `coalblend-blend` untuk dioptimasi. Tools:
 Kalau solver infeasible, `agents/optimizer.py` otomatis mendiagnosis relaksasi minimum yang
 dibutuhkan per constraint (lihat alerts CRITICAL "butuh relaksasi minimum ±...").
 
+## 3. coalblend-dashboard (`dashboard_server.py`)
+
+Membungkus `agents/synthesizer.py` (Agent 4 — render HTML statis, dark theme "Control
+Tower", tanpa perlu Flask/login/session). Tools:
+- `render_review_html(ingested_data, overrides=None, out_path="output/dashboard.html", meta="")`
+  — solve 3 skenario lalu tulis 1 file HTML siap dibuka di browser (perbandingan opsi A/B/C,
+  alert, panel Manual Override, banner kalibrasi historis dari `config/calibration.json`).
+- `render_report_html(ingested_data, scenario_id, validator, catatan="", overrides=None, out_path=None)`
+  — terbitkan Report Final & Rekomendasi Eksekusi untuk 1 skenario yang sudah dipilih (setara
+  aksi "Approve" di `/decide`).
+
+Server ini tidak menyimpan hasil solve sendiri — ia solve ulang dari `ingested_data` (murah,
+karena `constraint.build` bukan LP dan 1x LP solve < 1 detik) supaya independen dari bentuk
+internal `coalblend-blend`.
+
+## Alur agentic 3 server (end-to-end)
+
+    coalblend-data:  ingest_coal_data_from_workbook(template.xlsx)
+        → coalblend-blend:  run_blending(data)              (opsional, untuk lihat angka mentah)
+        → coalblend-dashboard: render_review_html(data)      → output/dashboard.html
+
+Ketiganya independen (masing-masing solve constraint dari `ingested_data` + manifest), jadi
+Claude Desktop bisa panggil `coalblend-dashboard` langsung setelah `coalblend-data` tanpa harus
+lewat `coalblend-blend` dulu — atau panggil ketiganya kalau mau lihat angka mentah + HTML.
+
 ## Spreadsheet template (simulasi data source)
 
 `fixtures/coalblend_input_template.xlsx` — 1 workbook, 4 sheet, angka identik dengan
@@ -72,6 +97,12 @@ Tambahkan kedua server (sesuaikan path Python & path project dengan lokasi di ko
       "args": [
         "C:\\Users\\Riza\\Downloads\\coalblend_mvp_v3\\coalblend_mvp1\\mcp_servers\\blend_server.py"
       ]
+    },
+    "coalblend-dashboard": {
+      "command": "C:\\Program Files\\Python312\\python.exe",
+      "args": [
+        "C:\\Users\\Riza\\Downloads\\coalblend_mvp_v3\\coalblend_mvp1\\mcp_servers\\dashboard_server.py"
+      ]
     }
   }
 }
@@ -95,8 +126,9 @@ validasi, lalu jalankan blending 3 skenario"* — Claude akan otomatis memanggil
 
 ## Selanjutnya
 
-- `dashboard_server.py` — bungkus `agents/dashboard.py` (render `output/dashboard.html` dari
-  hasil `run_blending`).
+- Login/multi-user, database (state saat ini file JSON per run), dan sinkronisasi dengan
+  situs `mkt-intopsbc.it.com` (AI Cortex) — di luar cakupan MCP lokal ini, lihat catatan di
+  chat sebelumnya soal keterbatasan hosting Passenger WSGI.
 - Basis referensi yang sudah direview untuk server blending: repo
   `rizarangelia/agentic_folder_coalblend2` (solver LP standalone + xlsx sumber data
   `ghost_deck_generate_blending_using_AI.xlsx`, struktur sheet "Business Process" jadi acuan
