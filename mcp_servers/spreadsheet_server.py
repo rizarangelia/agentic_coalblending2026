@@ -8,6 +8,7 @@ Jalankan manual untuk tes cepat:
     python mcp_servers/spreadsheet_server.py
 Daftarkan di Claude Desktop lewat claude_desktop_config.json (lihat mcp_servers/README.md).
 """
+import io
 import json
 import sys
 from pathlib import Path
@@ -137,6 +138,52 @@ def ingest_coal_data(
         "data": data,
         "alerts": [{"level": lvl, "agent": agent, "message": msg} for lvl, agent, msg in alerts],
         "sources": resolved_paths,
+    }
+
+
+def _sheet_to_xlsx_bytes(ws) -> bytes:
+    """Salin satu sheet ke workbook baru berdiri sendiri, supaya bisa dilewatkan ke
+    ingest() (yang membaca file per-file) tanpa duplikasi logic parsing/validasi."""
+    from openpyxl import Workbook
+    wb2 = Workbook()
+    ws2 = wb2.active
+    for row in ws.iter_rows(values_only=True):
+        ws2.append(row)
+    buf = io.BytesIO()
+    wb2.save(buf)
+    return buf.getvalue()
+
+
+@mcp.tool()
+def ingest_coal_data_from_workbook(workbook_path: str) -> dict:
+    """Parse + validasi 1 workbook Excel dengan 4 sheet (opening_stock, coal_getting,
+    demand_deal, plan_kapasitas) — dipakai untuk template konsolidasi
+    fixtures/coalblend_input_template.xlsx. Validasi sama persis dengan ingest_coal_data.
+
+    workbook_path: path relatif (ke root project) atau absolut ke file .xlsx.
+    """
+    from openpyxl import load_workbook
+
+    p = _resolve(workbook_path)
+    if not p.is_file():
+        return {"status": "REJECTED", "data": None,
+                 "alerts": [{"level": "CRITICAL", "agent": "INGEST", "message": f"File tidak ditemukan: {p}"}]}
+    required = ['opening_stock', 'coal_getting', 'demand_deal', 'plan_kapasitas']
+    wb = load_workbook(p, data_only=True)
+    missing = [s for s in required if s not in wb.sheetnames]
+    if missing:
+        return {"status": "REJECTED", "data": None,
+                 "alerts": [{"level": "CRITICAL", "agent": "INGEST",
+                             "message": f"Sheet tidak ditemukan: {missing}. Sheet tersedia: {wb.sheetnames}"}]}
+
+    manifest = _load_manifest()
+    files = {s: (_sheet_to_xlsx_bytes(wb[s]), f"{s}.xlsx") for s in required}
+    data, alerts = ingest(files, manifest)
+    return {
+        "status": (data or {}).get('status', 'REJECTED'),
+        "data": data,
+        "alerts": [{"level": lvl, "agent": agent, "message": msg} for lvl, agent, msg in alerts],
+        "source": str(p),
     }
 
 
