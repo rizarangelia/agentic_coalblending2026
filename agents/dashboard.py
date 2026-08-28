@@ -98,6 +98,7 @@ a.btn{background:var(--g);color:#ffffff;font:700 12px 'IBM Plex Sans';padding:8p
 <div class="nav">
 <a href="#" class="on" data-s="ov">📊 Dashboard</a>
 <a href="#" data-s="mon">🛰️ Monitoring Realtime <span style="font-size:8px;color:var(--g)">LIVE</span></a>
+<a href="#" data-s="ins">📈 Insight (Database) <span style="font-size:8px;color:var(--b)">DB</span></a>
 <a href="#" data-s="ap">📦 Available Product</a>
 <a href="#" data-s="bp">⚖️ Blending Plan</a>
 <a href="#" data-s="rv">💰 Revenue</a>
@@ -158,6 +159,21 @@ a.btn{background:var(--g);color:#ffffff;font:700 12px 'IBM Plex Sans';padding:8p
 <div class="note b2" style="margin-top:0"><b>Sumber feed:</b> <span id="mon_note">simulasi barge corridor</span>.
 Komposisi tongkang per kapal = racikan blending nyata (matriks site×brand solver). Integrasi AIS
 asli (Data Docked) tersedia server-side via <code>DATADOCKED_API_KEY</code> — tidak di-poll agar hemat kredit.</div>
+</section>
+
+<section id="ins">
+<div class="hd" style="margin-bottom:4px"><h2 style="border:none;margin:0">📈 Insight — langsung dari Database</h2>
+<span class="badge" id="ins_src">memuat…</span></div>
+<div class="cap">Semua grafik &amp; jadwal di halaman ini dibaca <b>langsung dari tabel PostgreSQL</b>
+(<code>coalblend_run_scenarios</code>, <code>coalblend_daily_stats</code>, <code>coalblend_vessels</code>,
+<code>coalblend_decisions</code>). Time-series harian &amp; ETA punya kolom waktu.</div>
+<div class="grid2">
+<div class="card"><h2 style="border:none;margin:0 0 8px">💰 Tren Revenue per Ronde <span class="prev">coalblend_run_scenarios</span></h2><canvas id="c_ins_rev"></canvas></div>
+<div class="card"><h2 style="border:none;margin:0 0 8px">✅ Keputusan Validator <span class="prev">coalblend_decisions</span></h2><canvas id="c_ins_dec"></canvas></div></div>
+<div class="card"><h2 style="border:none;margin:0 0 8px">🚢 Shipment Harian per Site — 30 hari <span class="prev">coalblend_daily_stats</span></h2><canvas id="c_ins_daily"></canvas></div>
+<h2>⚓ Jadwal Kapal Buyer &amp; ETA <span class="prev">coalblend_vessels</span></h2>
+<div class="cap">Estimated Time of Arrival + jendela laycan per kapal — kolom <code>eta</code>, <code>laycan_start/end</code>.</div>
+<div class="card tw"><table id="t_ins_ves"></table></div>
 </section>
 
 <section id="ap">
@@ -239,8 +255,9 @@ document.querySelectorAll('.nav a[data-s]').forEach(a=>a.onclick=e=>{e.preventDe
  document.querySelectorAll('.nav a[data-s]').forEach(x=>x.classList.remove('on'));a.classList.add('on');
  document.querySelectorAll('main section').forEach(s=>s.classList.remove('on'));
  document.getElementById(a.dataset.s).classList.add('on');
- document.getElementById('title').textContent=a.textContent.replace(/^..\s*/,'').replace(/\s*LIVE$/,'');
- a.dataset.s==='mon'?monStart():monStop();});
+ document.getElementById('title').textContent=a.textContent.replace(/^..\s*/,'').replace(/\s*(LIVE|DB)$/,'');
+ a.dataset.s==='mon'?monStart():monStop();
+ if(a.dataset.s==='ins')loadInsights();});
 
 function mk(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg);}
 async function load(){ST=await (await fetch('/api/state')).json();renderAll();buildSliders();}
@@ -441,6 +458,38 @@ function monRender(d){
   const cls=b.status==='Loading'?'v-Loading':(b.status==='En-route'?'v-Enroute':(b.status==='Discharging'?'v-Discharge':'v-Anchorage'));
   h+=`<tr><td>${b.id}</td><td style="text-align:left"><span style="color:${SITE_COL[b.site]}">●</span> ${b.site}</td><td style="text-align:left">${b.ship} <span class=mut>(${b.brand})</span></td><td>${F(b.cargo_mt)}</td><td><span class="vstat ${cls}">${b.status}</span></td><td class=mut>${b.speed_kn||'—'}</td><td class=mut>${b.status==='En-route'?b.eta_min:'—'}</td></tr>`});
  $m('t_mon').innerHTML=h;
+}
+
+// ===== INSIGHT (DATABASE) — grafik dibaca langsung dari Postgres =====
+let insLoaded=false;
+async function loadInsights(force){
+ if(insLoaded&&!force)return; insLoaded=true;
+ let d; try{ d=await (await fetch('/api/insights')).json(); }catch(e){ return; }
+ if(d.error)return;
+ const isDB=d.source==='postgres';
+ const b=$m('ins_src'); b.textContent=isDB?'sumber: PostgreSQL ✓':d.source;
+ b.style.background=isDB?'rgba(125,155,118,.16)':'rgba(224,164,78,.16)';
+ b.style.color=isDB?'#a9c39f':'#e0a44e'; b.style.borderColor=isDB?'#7d9b76':'#e0a44e';
+ // tren revenue per ronde (line)
+ const R=d.revenue_trend||[];
+ mk('c_ins_rev',{type:'line',data:{labels:R.map(r=>'Ronde '+r.round_no),datasets:[{label:'Revenue tertinggi',data:R.map(r=>r.revenue),borderColor:'#c6613f',backgroundColor:'rgba(198,97,63,.15)',fill:true,tension:.3,pointRadius:3}]},
+  options:{scales:{x:{grid:GRID,ticks:TICK},y:{grid:GRID,ticks:TICK}},plugins:{legend:{display:false}}}});
+ // keputusan validator (doughnut)
+ const DC=d.decisions||[]; const dcol={approve:'#7d9b76',reject:'#ff6159'};
+ mk('c_ins_dec',{type:'doughnut',data:{labels:DC.map(x=>x.aksi),datasets:[{data:DC.map(x=>x.n),backgroundColor:DC.map(x=>dcol[x.aksi]||'#6b9bd1')}]},
+  options:{plugins:{legend:{labels:{color:'#c3c2b7'}}}}});
+ // shipment harian per site (multi-line)
+ const DS=d.daily_shipment||[], sites=d.sites||[...new Set(DS.map(r=>r.site))];
+ const dates=[...new Set(DS.map(r=>r.stat_date))].sort();
+ const byKey={}; DS.forEach(r=>byKey[r.site+'|'+r.stat_date]=r.shipment);
+ mk('c_ins_daily',{type:'line',data:{labels:dates.map(x=>x.slice(5)),datasets:sites.map((s,i)=>({label:s,data:dates.map(dt=>byKey[s+'|'+dt]||0),borderColor:PAL[i%PAL.length],backgroundColor:PAL[i%PAL.length],tension:.25,pointRadius:0,borderWidth:2}))},
+  options:{scales:{x:{grid:GRID,ticks:TICK},y:{grid:GRID,ticks:TICK}},plugins:{legend:{labels:{color:'#c3c2b7',boxWidth:12}}}}});
+ // jadwal kapal & ETA
+ const V=d.vessels||[]; const fmt=s=>s?s.replace('T',' ').slice(0,16):'—';
+ let h='<tr><th>Kapal (Vessel)</th><th style="text-align:left">Buyer</th><th>Brand</th><th>Kapasitas (MT)</th><th style="text-align:left">ETA</th><th style="text-align:left">Laycan</th><th>Status</th></tr>';
+ V.forEach(v=>{const sc=v.status==='Discharging'?'v-Discharge':(v.status==='En-route'?'v-Enroute':(v.status==='At Anchorage'?'v-Anchorage':'v-Loading'));
+  h+=`<tr><td>${v.vessel_name}</td><td style="text-align:left">${v.buyer}</td><td>${v.brand}</td><td>${F(v.capacity_mt)}</td><td style="text-align:left">${fmt(v.eta)}</td><td style="text-align:left" class=mut>${(v.laycan_start||'').slice(5)} → ${(v.laycan_end||'').slice(5)}</td><td><span class="vstat ${sc}">${v.status}</span></td></tr>`});
+ $m('t_ins_ves').innerHTML=h;
 }
 
 load();

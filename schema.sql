@@ -108,3 +108,51 @@ CREATE TABLE IF NOT EXISTS public.blending_allocation (
     blending_allowance_mt numeric,
     kualitas numeric
 );
+
+-- ============================================================================
+-- 3) Tabel TIME-SERIES / INSIGHT (butuh kolom waktu: monitoring harian + ETA)
+--    Grafik "Insight (Database)" & jadwal ETA membaca tabel ini LANGSUNG.
+--    Diisi otomatis dummy oleh db.seed_demo() bila kosong (idempotent).
+-- ============================================================================
+
+-- jadwal kapal buyer + ETA + jendela laycan (monitoring kedatangan)
+CREATE TABLE IF NOT EXISTS coalblend_vessels (
+    id serial PRIMARY KEY,
+    vessel_name text NOT NULL,
+    buyer text,
+    brand text,
+    capacity_mt numeric,          -- 50.000–80.000 MT (kapal besar)
+    eta timestamptz,              -- Estimated Time of Arrival
+    laycan_start date,
+    laycan_end date,
+    status text,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- metrik harian per Site (untuk grafik shipment harian 30 hari)
+CREATE TABLE IF NOT EXISTS coalblend_daily_stats (
+    id serial PRIMARY KEY,
+    stat_date date NOT NULL,
+    site text NOT NULL,
+    opening_mt numeric,
+    coal_getting_mt numeric,
+    shipment_mt numeric,
+    closing_mt numeric,
+    util numeric,
+    cv_gar numeric
+);
+
+-- trip tongkang harian (opsional; tongkang 5.000–7.000 MT + ETA)
+CREATE TABLE IF NOT EXISTS coalblend_barge_trips (
+    id serial PRIMARY KEY,
+    trip_date date NOT NULL,
+    barge_id text NOT NULL,
+    site text,
+    vessel_name text,
+    brand text,
+    cargo_mt numeric,
+    status text,
+    eta timestamptz,
+    departed_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now()
+);

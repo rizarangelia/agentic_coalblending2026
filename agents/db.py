@@ -8,7 +8,7 @@ tidak terganggu). Metabase update otomatis karena membaca tabel yang sama.
 Arsitektur (sesuai diagram): Web (predict/blending) --write--> PostgreSQL(defaultdb)
                                                      --read--> Metabase & Claude
 """
-import os, json, pathlib, datetime
+import os, json, pathlib, datetime, decimal, hashlib
 
 ROOT = pathlib.Path(__file__).parent.parent
 
@@ -149,6 +149,47 @@ CREATE TABLE IF NOT EXISTS public.blending_allocation (
 );
 """
 
+# tabel TIME-SERIES / INSIGHT — butuh kolom waktu (monitoring harian + ETA kapal).
+# Grafik "Insight (Database)" & jadwal ETA membaca tabel ini LANGSUNG.
+SCHEMA_TS = """
+CREATE TABLE IF NOT EXISTS coalblend_vessels (
+    id serial PRIMARY KEY,
+    vessel_name text NOT NULL,
+    buyer text,
+    brand text,
+    capacity_mt numeric,
+    eta timestamptz,
+    laycan_start date,
+    laycan_end date,
+    status text,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS coalblend_daily_stats (
+    id serial PRIMARY KEY,
+    stat_date date NOT NULL,
+    site text NOT NULL,
+    opening_mt numeric,
+    coal_getting_mt numeric,
+    shipment_mt numeric,
+    closing_mt numeric,
+    util numeric,
+    cv_gar numeric
+);
+CREATE TABLE IF NOT EXISTS coalblend_barge_trips (
+    id serial PRIMARY KEY,
+    trip_date date NOT NULL,
+    barge_id text NOT NULL,
+    site text,
+    vessel_name text,
+    brand text,
+    cargo_mt numeric,
+    status text,
+    eta timestamptz,
+    departed_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+"""
+
 
 def init():
     """Buat tabel bila belum ada. Best-effort, dipanggil sekali saat startup."""
@@ -161,8 +202,10 @@ def init():
         with conn.cursor() as cur:
             cur.execute(SCHEMA)
             cur.execute(_EXISTING_DDL)
+            cur.execute(SCHEMA_TS)
         conn.commit()
-        _log("Skema Postgres siap (tabel history + existing).")
+        _log("Skema Postgres siap (history + existing + time-series).")
+        seed_demo()  # isi dummy bila tabel insight/history kosong
         return True
     except Exception as e:
         _log(f"init() gagal: {e!r}")
@@ -368,3 +411,194 @@ def refresh_blending_allocation(sol, C):
                 "INSERT INTO public.blending_allocation (source, product, shipment_mt, blending_allowance_mt, kualitas)"
                 " VALUES (%s,%s,%s,%s,%s)", rows)
     return _safe(op)
+
+
+# ============================================================================
+# INSIGHT / TIME-SERIES — data untuk grafik dashboard, SEMUA dari Postgres.
+# Generator dipakai bersama oleh seed_demo() (INSERT) & fallback insights()
+# (bila DATABASE_URL belum di-set, agar grafik tetap render dengan label jelas).
+# ============================================================================
+_SEED_SITES = [   # (site, opening, coal_getting, shipment_bulan, cv, jetty)
+    ('Lati',      200000,  600000,  625000, 5000,  650000),
+    ('Binungan',  190000, 1000000, 1040000, 4950, 1100000),
+    ('Sambarata', 250000,  350000,  500000, 5900,  450000),
+    ('Gurimbang',  50000,  650000,  650000, 3880,  660000),
+    ('BMO3',       10000,  200000,  185000, 3350,  140000),
+]
+_SEED_VESSELS = [   # (vessel, buyer, brand)
+    ('MV Andhika Paramesti', 'PLTU Suralaya',      'CV 4600'),
+    ('MV Meratus Zamrud',    'PLTU Indramayu',     'Sungkai'),
+    ('MV Nusantara Jaya',    'PLTU Lontar',        'CV 4200'),
+    ('MV Sinar Borneo',      'PLTU Cirebon',       'Mahoni B'),
+    ('MV Karya Bahari',      'PLTU Labuan',        'Sungkai B'),
+    ('MV Ocean Harmony',     'PLTU Tanjung Jati',  'Agathis'),
+    ('MV Bulk Prosperity',   'PLTU Paiton',        'Eboni'),
+    ('MV Samudra Biru',      'PLTU Pelabuhan Ratu','CV 3800'),
+]
+_BASELINE = 24225858.52
+_STATUS_CYCLE = ['Scheduled', 'En-route', 'At Anchorage', 'Discharging']
+
+
+def _rnd(*parts):
+    h = hashlib.sha1('|'.join(map(str, parts)).encode()).hexdigest()
+    return int(h[:8], 16) / 0xFFFFFFFF
+
+
+def _gen_daily(days=30):
+    today = datetime.date.today()
+    out = []
+    for d in range(days - 1, -1, -1):
+        day = today - datetime.timedelta(days=d)
+        for (site, op, cg, shm, cv, jet) in _SEED_SITES:
+            noise = 0.9 + _rnd('ds', site, d) * 0.2
+            ship = round(shm / 30 * noise)
+            cgd = round(cg / 30 * noise)
+            out.append({'stat_date': day, 'site': site, 'opening_mt': op,
+                        'coal_getting_mt': cgd, 'shipment_mt': ship,
+                        'closing_mt': round(op + cg / 30 - ship),
+                        'util': round(ship / (jet / 30), 3), 'cv_gar': cv})
+    return out
+
+
+def _gen_vessels():
+    now = datetime.datetime.now()
+    out = []
+    for i, (name, buyer, brand) in enumerate(_SEED_VESSELS):
+        cap = int(50000 + _rnd('cap', name) * 30000)
+        eta = now + datetime.timedelta(hours=round(_rnd('eta', name) * 264 - 48))  # -2..+9 hari
+        ls = eta.date(); le = ls + datetime.timedelta(days=2)
+        out.append({'vessel_name': name, 'buyer': buyer, 'brand': brand, 'capacity_mt': cap,
+                    'eta': eta, 'laycan_start': ls, 'laycan_end': le,
+                    'status': _STATUS_CYCLE[i % len(_STATUS_CYCLE)]})
+    return sorted(out, key=lambda v: v['eta'])
+
+
+def _gen_runs(n=8):
+    now = datetime.datetime.now()
+    out = []
+    for i in range(n):
+        rid = f'seed{i:02d}'; ts = now - datetime.timedelta(days=(n - i))
+        base = _BASELINE * (0.97 + _rnd('rev', i) * 0.06)
+        scen = [('A', 'Max Revenue', 1.0), ('B', 'Quality-Safe', 0.995), ('C', 'Evakuasi', 0.988)]
+        out.append({'run_id': rid, 'round_no': i + 1, 'ts': ts,
+                    'scenarios': [{'scenario_id': s, 'nama': nm, 'revenue': round(base * m)} for s, nm, m in scen]})
+    return out
+
+
+def _gen_decisions(n=8):
+    now = datetime.datetime.now()
+    out = []
+    for i in range(n):
+        aksi = 'approve' if _rnd('dec', i) > 0.25 else 'reject'
+        opsi = 'A' if _rnd('op', i) > 0.4 else ('B' if _rnd('op2', i) > 0.5 else 'C')
+        out.append({'run_id': f'seed{i:02d}', 'round_no': i + 1,
+                    'decided_at': now - datetime.timedelta(days=(n - i)),
+                    'scenario_id': opsi, 'aksi': aksi,
+                    'revenue': round(_BASELINE * (0.97 + _rnd('r2', i) * 0.05))})
+    return out
+
+
+def _empty(cur, table):
+    cur.execute(f"SELECT 1 FROM {table} LIMIT 1")
+    return cur.fetchone() is None
+
+
+def seed_demo():
+    """Isi dummy HANYA bila tabel kosong (tidak menimpa data asli). Idempotent."""
+    if not enabled():
+        return False
+    conn = None
+    try:
+        conn = _connect()
+        with conn.cursor() as cur:
+            if _empty(cur, 'coalblend_daily_stats'):
+                for r in _gen_daily():
+                    cur.execute(
+                        "INSERT INTO coalblend_daily_stats (stat_date,site,opening_mt,coal_getting_mt,shipment_mt,closing_mt,util,cv_gar)"
+                        " VALUES (%(stat_date)s,%(site)s,%(opening_mt)s,%(coal_getting_mt)s,%(shipment_mt)s,%(closing_mt)s,%(util)s,%(cv_gar)s)", r)
+            if _empty(cur, 'coalblend_vessels'):
+                for v in _gen_vessels():
+                    cur.execute(
+                        "INSERT INTO coalblend_vessels (vessel_name,buyer,brand,capacity_mt,eta,laycan_start,laycan_end,status)"
+                        " VALUES (%(vessel_name)s,%(buyer)s,%(brand)s,%(capacity_mt)s,%(eta)s,%(laycan_start)s,%(laycan_end)s,%(status)s)", v)
+            if _empty(cur, 'coalblend_runs'):
+                for r in _gen_runs():
+                    cur.execute("INSERT INTO coalblend_runs (run_id,round_no,created_at,username,sumber,node_terakhir,n_alerts)"
+                                " VALUES (%s,%s,%s,%s,%s,%s,%s)", (r['run_id'], r['round_no'], r['ts'], 'planner', 'seed demo', 'REVIEW', 3))
+                    for sc in r['scenarios']:
+                        cur.execute("INSERT INTO coalblend_run_scenarios (run_id,round_no,created_at,scenario_id,nama,revenue,total_ship,feasible)"
+                                    " VALUES (%s,%s,%s,%s,%s,%s,%s,%s)", (r['run_id'], r['round_no'], r['ts'], sc['scenario_id'], sc['nama'], sc['revenue'], 1500000, True))
+            if _empty(cur, 'coalblend_decisions'):
+                for d in _gen_decisions():
+                    cur.execute("INSERT INTO coalblend_decisions (run_id,round_no,decided_at,validator,scenario_id,aksi,catatan,revenue)"
+                                " VALUES (%s,%s,%s,%s,%s,%s,%s,%s)", (d['run_id'], d['round_no'], d['decided_at'], 'planner', d['scenario_id'], d['aksi'], 'seed', d['revenue']))
+        conn.commit()
+        _log("seed_demo selesai (tabel kosong diisi dummy time-series/insight).")
+        return True
+    except Exception as e:
+        _log(f"seed_demo gagal: {e!r}")
+        if conn:
+            try: conn.rollback()
+            except Exception: pass
+        return False
+    finally:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+
+
+def _iso(v):
+    if isinstance(v, (datetime.date, datetime.datetime)):
+        return v.isoformat()
+    if isinstance(v, decimal.Decimal):
+        return float(v)
+    return v
+
+
+def _fetch(sql, params=()):
+    conn = None
+    try:
+        conn = _connect()
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            cols = [c.name for c in cur.description]
+            rows = cur.fetchall()
+        return [{c: _iso(v) for c, v in zip(cols, r)} for r in rows]
+    except Exception as e:
+        _log(f"_fetch gagal: {e!r}")
+        return None
+    finally:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+
+
+def insights():
+    """Kumpulan insight untuk grafik dashboard. Dari Postgres bila terhubung,
+    selain itu dummy in-memory (label 'contoh') agar grafik tetap tampil."""
+    if enabled():
+        rev = _fetch("SELECT round_no, max(revenue) AS revenue, min(created_at) AS ts"
+                     " FROM coalblend_run_scenarios GROUP BY round_no ORDER BY round_no")
+        daily = _fetch("SELECT stat_date, site, sum(shipment_mt) AS shipment"
+                       " FROM coalblend_daily_stats GROUP BY stat_date, site ORDER BY stat_date, site")
+        dec = _fetch("SELECT aksi, count(*) AS n FROM coalblend_decisions GROUP BY aksi")
+        ves = _fetch("SELECT vessel_name, buyer, brand, capacity_mt, eta, laycan_start, laycan_end, status"
+                     " FROM coalblend_vessels ORDER BY eta")
+        if rev is not None and daily is not None:
+            return {'source': 'postgres', 'revenue_trend': rev, 'daily_shipment': daily,
+                    'decisions': dec or [], 'vessels': ves or [],
+                    'sites': [s[0] for s in _SEED_SITES]}
+    # fallback in-memory
+    daily = [{'stat_date': r['stat_date'].isoformat(), 'site': r['site'], 'shipment': r['shipment_mt']}
+             for r in _gen_daily()]
+    rev = [{'round_no': r['round_no'], 'revenue': max(s['revenue'] for s in r['scenarios']),
+            'ts': r['ts'].isoformat()} for r in _gen_runs()]
+    from collections import Counter
+    dc = Counter(d['aksi'] for d in _gen_decisions())
+    dec = [{'aksi': k, 'n': v} for k, v in dc.items()]
+    ves = [{'vessel_name': v['vessel_name'], 'buyer': v['buyer'], 'brand': v['brand'],
+            'capacity_mt': v['capacity_mt'], 'eta': v['eta'].isoformat(),
+            'laycan_start': v['laycan_start'].isoformat(), 'laycan_end': v['laycan_end'].isoformat(),
+            'status': v['status']} for v in _gen_vessels()]
+    return {'source': 'contoh (DB tidak terhubung)', 'revenue_trend': rev, 'daily_shipment': daily,
+            'decisions': dec, 'vessels': ves, 'sites': [s[0] for s in _SEED_SITES]}

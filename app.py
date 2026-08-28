@@ -402,6 +402,11 @@ def api_monitoring():
     snap['meta'] = {'user': st['user'], 'run_id': st['run_id'], 'sumber': st['sumber']}
     return snap
 
+@app.route('/api/insights')
+def api_insights():
+    if not logged_in(): return {'error': 'unauthorized'}, 401
+    return db.insights()
+
 @app.route('/api/optimize', methods=['POST'])
 def api_optimize():
     if not logged_in(): return {'error': 'unauthorized'}, 401
