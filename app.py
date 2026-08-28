@@ -62,12 +62,40 @@ def input_data():
             if f and f.filename:
                 files[key] = (f.read(), f.filename)
         return run_pipeline(files)
-    rows = ''.join(f'<label>{k.replace("_"," ").title()} (.csv / .xlsx)</label><input type="file" name="{k}">'
-                   for k in ('opening_stock', 'coal_getting', 'demand_deal', 'plan_kapasitas'))
+    rows = ''.join(
+        f'<label>{k.replace("_"," ").title()} (.csv / .xlsx) '
+        f'<a href="/template/{k}" download style="text-transform:none;color:#6b9bd1;font-weight:600">⬇ unduh template</a>'
+        f'</label><input type="file" name="{k}">'
+        for k in ('opening_stock', 'coal_getting', 'demand_deal', 'plan_kapasitas'))
+    sites = ', '.join(MANIFEST['sites'])
     body = f"""<h1>Input Data Bulanan</h1><div class="sub">User: {session['user']} · cadence KB-12 (tgl 1 &amp; tgl 3–5) · <a href="/logout">logout</a></div>
+    <div class="sub" style="background:#262523;border:1px solid #37342f;border-radius:9px;padding:10px 12px;margin-bottom:14px;text-transform:none;line-height:1.5">
+    📄 Belum punya format? <b>Unduh template</b> di tiap kolom — sudah sesuai nama Site: <b>{sites}</b>.
+    Isi angkanya, lalu upload. <a href="/template/all" download style="color:#6b9bd1;font-weight:600">⬇ unduh semua (ZIP)</a></div>
     <form method="post" enctype="multipart/form-data">{rows}<button>Jalankan Optimisasi</button></form>
     <div class="sub" style="margin-top:12px">Kosongkan semua untuk memakai <b>fixtures simulasi</b> (uji baseline 24.225.858,52).</div>"""
     return render_template_string(PAGE, body=body)
+
+@app.route('/template/<key>')
+def template(key):
+    if not logged_in(): return redirect('/')
+    from flask import Response
+    keys = ('opening_stock', 'coal_getting', 'demand_deal', 'plan_kapasitas')
+    if key == 'all':
+        import io, zipfile
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+            for k in keys:
+                p = ROOT / f'fixtures/{k}_simulasi.csv'
+                if p.exists(): z.writestr(f'{k}_template.csv', p.read_text(encoding='utf-8'))
+        return Response(buf.getvalue(), mimetype='application/zip',
+                        headers={'Content-Disposition': 'attachment; filename=coalblend_templates.zip'})
+    if key not in keys:
+        return 'template tidak dikenal', 404
+    p = ROOT / f'fixtures/{key}_simulasi.csv'
+    if not p.exists(): return 'template tidak ditemukan', 404
+    return Response(p.read_text(encoding='utf-8'), mimetype='text/csv',
+                    headers={'Content-Disposition': f'attachment; filename={key}_template.csv'})
 
 def _rounds():
     p = DATA_DIR / 'output/rounds.json'
