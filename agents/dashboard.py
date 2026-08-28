@@ -111,7 +111,8 @@ a.btn{background:var(--g);color:#ffffff;font:700 12px 'IBM Plex Sans';padding:8p
 <a href="#" data-s="pi">💡 Price Intel <span style="font-size:8px;color:var(--a)">MVP2</span></a>
 <a href="#" data-s="si">🚢 Stock Intel <span style="font-size:8px;color:var(--a)">MVP3</span></a>
 <a href="/input">⬆️ Input Data</a>
-<a href="/review">✅ Periodical Evaluation</a>
+<a href="/constraints">🎛️ Constraints</a>
+<a href="/review">✅ Review &amp; Validasi</a>
 <a href="/logout">↩︎ Logout</a></div>
 <div class="foot">Model 1–9 v1.1 · Solver CBC<br>angka 100% dari solver</div></aside>
 <main>
@@ -202,7 +203,7 @@ asli (Data Docked) tersedia server-side via <code>DATADOCKED_API_KEY</code> — 
 <div class="card"><h2 style="border:none;margin:0 0 8px">📊 Komposisi Site Pemblending per Brand</h2><canvas id="c_mx"></canvas></div>
 <div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
 <div style="flex:1;font-size:12.5px" class="mut">Simulasi slider tidak mengubah data resmi. Untuk keputusan final, gunakan alur validasi multi-opsi.</div>
-<a class="btn" href="/review">Lanjut ke Periodical Evaluation →</a></div>
+<a class="btn" href="/review">Lanjut ke Review &amp; Validasi →</a></div>
 </section>
 
 <section id="pi">
@@ -318,10 +319,12 @@ function renderAll(){
 }
 function renderBlend(){
  const s=sol(),S=ST.sites,B=ST.brands;
- let h='<tr><th>Brand</th><th>Deal (MT)</th><th>Optimize (MT)</th><th>Total Shipment (MT)</th><th>CV Blending</th><th>Band CV (min–max)</th><th>Kualitas</th></tr>';
- B.forEach(b=>{const cv=s.brand_cv[b],mn=ST.cv_min[b],mx=ST.cv_max[b];
-  const q=Math.abs(cv-mn)<1?['neg','DI BATAS REJECT']:(cv>=mx-1?['pos','di typical']:['amb',`−${F1(mx-cv)} vs typical`]);
-  h+=`<tr><td>${b}</td><td>${F(s.deal[b])}</td><td class=pos>${F(s.optimize[b])}</td><td><b>${F(s.brand_total[b])}</b></td><td>${F1(cv)}</td><td class=mut>${F1(mn)}–${F1(mx)}</td><td class="${q[0]}">${q[1]}</td></tr>`});
+ const hasQ=!!s.brand_ts;
+ let h='<tr><th>Brand</th><th>Deal (MT)</th><th>Optimize (MT)</th><th>Total Shipment (MT)</th><th>CV Blending</th><th>Band CV (min–max)</th>'+(hasQ?'<th>TS %</th><th>Ash %</th><th>Na2O %</th>':'')+'<th>Kualitas</th></tr>';
+ B.forEach(b=>{const cv=s.brand_cv[b],mn=ST.cv_min[b],mx=ST.cv_max[b],rej=(ST.cv_reject||{})[b]??mn;
+  const q=cv<=rej+1?['neg','DI BATAS REJECT']:(cv>=mx-1?['pos','KUALITAS MAKS']:['amb',`aman +${F1(cv-rej)} dari reject`]);
+  const qc=hasQ?`<td class=mut>${(s.brand_ts[b]||0).toFixed(2)}</td><td class=mut>${(s.brand_ash[b]||0).toFixed(1)}</td><td class=mut>${(s.brand_na2o[b]||0).toFixed(2)}</td>`:'';
+  h+=`<tr><td>${b}</td><td>${F(s.deal[b])}</td><td class=pos>${F(s.optimize[b])}</td><td><b>${F(s.brand_total[b])}</b></td><td>${F1(cv)}</td><td class=mut>${F1(mn)}–${F1(mx)}</td>${qc}<td class="${q[0]}">${q[1]}</td></tr>`});
  document.getElementById('t_brand').innerHTML=h;
  h='<tr><th>Site \\ Brand</th>'+B.map(b=>`<th>${b}</th>`).join('')+'<th>Total Site</th></tr>';
  S.forEach(x=>{h+=`<tr><td>${x.site}</td>`+B.map(b=>ST.allowance[x.site][b]?`<td>${s.x[x.site][b]>0.5?F(s.x[x.site][b]):'<span class=mut>—</span>'}</td>`:'<td class=dis>✕</td>').join('')+`<td><b>${F(s.site_ship[x.site])}</b></td></tr>`});

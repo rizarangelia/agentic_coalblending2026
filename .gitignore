@@ -30,3 +30,4 @@ config/calibration.json
 
 # Local Claude Code tooling
 .claude/
+config/constraint_settings.json

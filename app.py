@@ -7,6 +7,7 @@ import hashlib as _h
 from flask import Flask, request, session, redirect, render_template_string
 from agents import ingestion, constraint, optimizer, synthesizer, orchestrator
 from agents import db  # persistensi Postgres (defaultdb) — Metabase baca DB yang sama
+from agents import settings as cset  # constraint settings (menu Constraints): CV/TS/Ash/Na2O/kapasitas
 from agents.dashboard import DASH_HTML
 
 ROOT = pathlib.Path(__file__).parent
@@ -18,6 +19,7 @@ for _d in ('output', 'config'):
     except Exception: pass
 MANIFEST = json.loads((ROOT / 'config/constraint_manifest.json').read_text())
 USERS = json.loads((ROOT / 'config/users.json').read_text())
+SETTINGS = cset.load(MANIFEST)  # quality-safe default; diedit lewat /constraints
 
 app = Flask(__name__)
 # produksi (Railway): set SECRET_KEY di env; fallback demo untuk dev lokal
@@ -156,7 +158,7 @@ def run_pipeline(files, sumber_demand=None):
         files = {k: ((fx / f'{k}_simulasi.csv').read_bytes(), f'{k}_simulasi.csv')
                  for k in ('opening_stock', 'coal_getting', 'demand_deal', 'plan_kapasitas')}
     st = orchestrator.run(files, MANIFEST, session.get('user', 'tester'),
-                          ingestion, constraint, optimizer)          # state graph + lineage + trace
+                          ingestion, constraint, optimizer, settings=SETTINGS)   # state graph + lineage + trace
     session['run_id'] = st['run_id']
     _sumber = sumber_demand or ('fixtures simulasi' if use_fixtures else f'{len(files)} file input')
     # PERSIST: tiap upload masuk DB (defaultdb) — Metabase baca tabel yang sama
@@ -281,7 +283,7 @@ def override():
     alasan = request.form.get('alasan', '').strip()
     orchestrator._log(session.get('run_id', '?'), 'OVERRIDE', 'RERUN',
                       {'validator': session['user'], 'alasan': alasan, 'perubahan': changed})
-    C, a2 = constraint.build(MANIFEST, L['data'], overrides=ov)
+    C, a2 = constraint.build(MANIFEST, L['data'], overrides=ov, settings=SETTINGS)
     if any(s == 'CRITICAL' for s, _, _ in a2):
         return synthesizer.render(None, C, a2, meta=f"override oleh {session['user']} · pre-solve gagal")
     scenarios = optimizer.solve_scenarios(C)
@@ -320,7 +322,7 @@ def _solve_from(data, deal_override=None):
         for b, v in deal_override.items():
             if b in data['demand_deal']:
                 data['demand_deal'][b]['volume_deal_mt'] = float(v)
-    C, a2 = constraint.build(MANIFEST, data)
+    C, a2 = constraint.build(MANIFEST, data, settings=SETTINGS)
     if any(s == 'CRITICAL' for s, _, _ in a2):
         return None, C, a2
     sol, a3 = optimizer.solve(C)
@@ -355,6 +357,42 @@ def api_ack():
     ackp.write_text(json.dumps(sorted(acked)))
     return {'ok': True, 'acked': len(acked)}
 
+@app.route('/constraints', methods=['GET', 'POST'])
+def constraints():
+    global SETTINGS
+    if not logged_in(): return redirect('/')
+    from agents import constraints_page
+    if request.method == 'POST':
+        s = cset.load(MANIFEST); f = request.form
+        def fnum(key, default=None):
+            v = (f.get(key) or '').strip()
+            if v == '': return default
+            try: return float(v)
+            except ValueError: return default
+        s['enabled'] = f.get('enabled') == 'on'
+        s['quality_margin_cv'] = fnum('qmargin', s.get('quality_margin_cv'))
+        s['quality_reward'] = fnum('qreward', s.get('quality_reward'))
+        s['capacity']['total_min'] = fnum('cap_total_min', 0) or 0
+        s['capacity']['total_max'] = fnum('cap_total_max', None)
+        for site in MANIFEST['sites']:
+            pj = s['capacity'].setdefault('per_jetty', {}).setdefault(site, {})
+            pj['min'] = fnum(f'jetty_min_{site}', 0) or 0
+            pj['max'] = fnum(f'jetty_max_{site}', None)
+            a = s['site_assay'].setdefault(site, {})
+            for dim in ('ts', 'ash', 'na2o'):
+                a[dim] = fnum(f'assay_{dim}_{site}', a.get(dim))
+        for b in MANIFEST['brands']:
+            s['cv'].setdefault(b, {})['min'] = fnum(f'cv_min_{b}', s['cv'][b].get('min'))
+            s['cv'][b]['max'] = fnum(f'cv_max_{b}', s['cv'][b].get('max'))
+            for dim in ('ts', 'ash', 'na2o'):
+                d = s[dim].setdefault(b, {})
+                d['min'] = fnum(f'{dim}_min_{b}', 0) or 0
+                d['max'] = fnum(f'{dim}_max_{b}', None)
+        cset.save(s)
+        SETTINGS = cset.load(MANIFEST)
+        return constraints_page.render(SETTINGS, MANIFEST, saved=True)
+    return constraints_page.render(SETTINGS, MANIFEST)
+
 @app.route('/dashboard')
 def dashboard():
     if not logged_in(): return redirect('/')
@@ -377,6 +415,7 @@ def api_state():
                      'versi': MANIFEST['_meta'].get('versi', '?'), 'run_id': st['run_id']},
             'sites': sites, 'brands': C['brands'], 'allowance': C['allowance'],
             'cv_min': C['cv_min'], 'cv_max': C['cv_max'], 'price': C['price'],
+            'cv_reject': {b: MANIFEST['brand_spec'][b]['cv_min_reject'] for b in C['brands']},
             'deal_default': C['deal'], 'total_capacity': C['total_capacity'],
             'solution': sol, 'alerts': _alert_objs([tuple(a) for a in (st.get('alerts') or [])] + alerts)}
 

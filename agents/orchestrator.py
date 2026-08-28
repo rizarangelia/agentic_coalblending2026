@@ -33,7 +33,7 @@ def lineage_of(files: dict, manifest: dict):
         'baseline_validasi': manifest.get('_meta', {}).get('baseline_validasi_revenue'),
     }
 
-def run(files, manifest, user, ingestion, constraint, optimizer):
+def run(files, manifest, user, ingestion, constraint, optimizer, settings=None):
     """Eksekusi graph sampai node REVIEW (pause untuk manusia). Return state lengkap."""
     state = {'run_id': uuid.uuid4().hex[:10], 'user': user, 'mulai': _now(),
              'lineage': lineage_of(files, manifest), 'alerts': [], 'node_terakhir': None}
@@ -52,7 +52,7 @@ def run(files, manifest, user, ingestion, constraint, optimizer):
     _log(rid, 'INGEST', 'VALID', {'n_alerts': len(a1)})
 
     # NODE 2 — CONSTRAINT
-    C, a2 = constraint.build(manifest, data)
+    C, a2 = constraint.build(manifest, data, settings=settings)
     state['alerts'] += a2
     state['C'] = C
     if any(s == 'CRITICAL' for s, _, _ in a2):

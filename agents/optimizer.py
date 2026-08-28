@@ -18,6 +18,8 @@ def _base_model(C, elastic=False):
         for b in brands:
             if not C['allowance'][s][b]:
                 m += x[s, b] == 0, f'M5_{s}_{b}'
+    # dimensi kualitas tambahan (aktif hanya bila settings menyediakannya)
+    QDIM = (('ts', 'M10'), ('ash', 'M11'), ('na2o', 'M12'))
     for b in brands:
         tot = pulp.lpSum(x[s, b] for s in sites)
         eng = pulp.lpSum(x[s, b] * C['cv_site'][s] for s in sites)
@@ -25,14 +27,31 @@ def _base_model(C, elastic=False):
         m += tot <= C['deal_multiplier'] * C['deal'][b] + (S(f'M2 max {b}') if elastic else 0), f'M2_{b}'
         m += eng + (S(f'M6 cvmin {b}') if elastic else 0) >= C['cv_min'][b] * tot, f'M6_{b}'
         m += eng <= C['cv_max'][b] * tot + (S(f'M7 cvmax {b}') if elastic else 0), f'M7_{b}'
+        for dim, mid in QDIM:  # TS / Ash / Na2O — weighted per brand <= max (>= min opsional)
+            site_a = C.get(f'{dim}_site'); smax = C.get(f'{dim}_max') or {}; smin = C.get(f'{dim}_min') or {}
+            if site_a and b in smax:
+                q = pulp.lpSum(x[s, b] * site_a[s] for s in sites)
+                m += q <= smax[b] * tot + (S(f'{mid} {dim}max {b}') if elastic else 0), f'{mid}_{b}'
+            if site_a and b in smin:
+                q = pulp.lpSum(x[s, b] * site_a[s] for s in sites)
+                m += q + (S(f'{mid}min {dim} {b}') if elastic else 0) >= smin[b] * tot, f'{mid}min_{b}'
     for s in sites:
         ship = pulp.lpSum(x[s, b] for b in brands)
         m += ship <= C['available'][s], f'M3_{s}'
         m += C['available'][s] - ship + (S(f'M8 csmin {s}') if elastic else 0) >= C['cs_min'][s], f'M8_{s}'
         m += C['available'][s] - ship <= C['cs_max'][s] + (S(f'M9 csmax {s}') if elastic else 0), f'M9_{s}'
-    m += pulp.lpSum(x[s, b] for s in sites for b in brands) <= C['total_capacity'] + (S('M4 total') if elastic else 0), 'M4'
+    grand = pulp.lpSum(x[s, b] for s in sites for b in brands)
+    cap_max = C.get('cap_total_max', C['total_capacity'])
+    m += grand <= cap_max + (S('M4 total') if elastic else 0), 'M4'
+    if C.get('cap_total_min'):  # capacity minimum (opsional dari menu)
+        m += grand + (S('M4min total') if elastic else 0) >= C['cap_total_min'], 'M4min'
 
     revenue = pulp.lpSum(pulp.lpSum(x[s, b] * C['cv_site'][s] for s in sites) / C['cv_max'][b] * C['price'][b] for b in brands)
+    qr = C.get('quality_reward')  # dorong CV brand naik (headroom di atas cv_min), bobot kecil
+    if qr:
+        revenue = revenue + qr * pulp.lpSum(
+            pulp.lpSum(x[s, b] * C['cv_site'][s] for s in sites) - C['cv_min'][b] * pulp.lpSum(x[s, b] for s in sites)
+            for b in brands)
     return m, x, slack, revenue
 
 def solve(C):
@@ -73,6 +92,12 @@ def solve(C):
                        for b in C['brands']}
     sol['brand_revenue'] = {b: sum(sol['x'][s][b] * C['cv_site'][s] for s in C['sites']) / C['cv_max'][b] * C['price'][b]
                             for b in C['brands']}
+    # kualitas tambahan per brand (weighted) — hanya bila assay tersedia dari settings
+    for dim in ('ts', 'ash', 'na2o'):
+        site_a = C.get(f'{dim}_site')
+        if site_a:
+            sol['brand_' + dim] = {b: (sum(sol['x'][s][b] * site_a[s] for s in C['sites']) / t
+                                       if (t := sol['brand_total'][b]) else 0) for b in C['brands']}
     sol['optimize'] = {b: sol['brand_total'][b] - C['deal'][b] for b in C['brands']}
     sol['site_ship'] = {s: sum(sol['x'][s][b] for b in C['brands']) for s in C['sites']}
     sol['closing'] = {s: C['available'][s] - sol['site_ship'][s] for s in C['sites']}

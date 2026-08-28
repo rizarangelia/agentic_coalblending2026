@@ -4,9 +4,11 @@ Membaca constraint_manifest.json (source of truth deterministik, BUKAN vector re
   Model 4 TOTAL-ONLY (per-jetty = warning check), Model 6 tanpa toleransi -50.
 """
 
-def build(manifest: dict, data: dict, overrides: dict = None):
+def build(manifest: dict, data: dict, overrides: dict = None, settings: dict = None):
     """overrides (Manual Override validator): {'cs_min':{site:v},'cs_max':{site:v},'deal':{brand:v}} —
-    tacit knowledge manusia masuk sebagai parameter, dicatat di audit trail."""
+    tacit knowledge manusia masuk sebagai parameter, dicatat di audit trail.
+    settings (opsional, dari menu Constraints): min/max Capacity/CV/TS/Ash/Na2O + assay per Site.
+    TANPA settings, perilaku identik dengan baseline (jalur test tidak berubah)."""
     alerts = []
     sites, brands = manifest['sites'], manifest['brands']
     avail = {s: data['opening_stock'][s]['volume_mt'] + data['coal_getting'][s]['volume_mt'] for s in sites}
@@ -43,7 +45,7 @@ def build(manifest: dict, data: dict, overrides: dict = None):
             alerts.append(('WARNING', 'PRICE',
                            f'Guardrail harga: {hi} (CV {spec[hi]["cv_max_typical"]}) lebih murah dari {lo} '
                            f'(CV {spec[lo]["cv_max_typical"]}) — cek input harga (anomali monotonic).'))
-    return {
+    C = {
         'sites': sites, 'brands': brands, 'available': avail, 'cv_site': cv,
         'deal': deal, 'deal_multiplier': mult,
         'allowance': manifest['allowance_matrix'],
@@ -53,4 +55,32 @@ def build(manifest: dict, data: dict, overrides: dict = None):
         'cs_min': {s: csb[s]['min'] for s in sites},
         'cs_max': {s: csb[s]['max'] for s in sites},
         'total_capacity': total_cap, 'jetty_capacity': jetty,  # jetty = warning check saja
-    }, alerts
+    }
+    # --- settings menu Constraints (opsional): quality-safe CV + TS/Ash/Na2O + capacity ---
+    if settings and settings.get('enabled'):
+        cvs = settings.get('cv') or {}
+        for b in brands:
+            if b in cvs:
+                # jaga feasibility: cv_min di antara reject dan cv_max
+                mn = float(cvs[b].get('min', C['cv_min'][b]))
+                mx = float(cvs[b].get('max', C['cv_max'][b]))
+                C['cv_min'][b] = max(spec[b]['cv_min_reject'], min(mn, mx - 5))
+                C['cv_max'][b] = mx
+        assay = settings.get('site_assay') or {}
+        for dim in ('ts', 'ash', 'na2o'):
+            if all(dim in (assay.get(s) or {}) for s in sites):
+                C[f'{dim}_site'] = {s: float(assay[s][dim]) for s in sites}
+                bd = settings.get(dim) or {}
+                C[f'{dim}_max'] = {b: float((bd.get(b) or {}).get('max')) for b in brands if (bd.get(b) or {}).get('max') is not None}
+                C[f'{dim}_min'] = {b: float((bd.get(b) or {}).get('min')) for b in brands if (bd.get(b) or {}).get('min')}
+        cap = settings.get('capacity') or {}
+        if cap.get('total_min'):
+            C['cap_total_min'] = float(cap['total_min'])
+        if cap.get('total_max'):
+            C['cap_total_max'] = float(cap['total_max'])
+        C['quality_reward'] = float(settings.get('quality_reward') or 0)
+        # pre-solve sanity untuk capacity min
+        if C.get('cap_total_min', 0) > total_cap:
+            alerts.append(('CRITICAL', 'CONSTRAINT',
+                           f'Capacity min {C["cap_total_min"]:,.0f} > total plan kapasitas {total_cap:,.0f} (mustahil).'))
+    return C, alerts
