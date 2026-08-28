@@ -19,4 +19,4 @@ Karena Total Blending dibatasi Plan Kapasitas Shipment (Model 4), maka secara ag
 
 **Konstrain:** Model 8 (closing >= min per site) dan Model 9 (closing <= max per site).
 
-**Contoh SIMULASI:** Available 3.500.000 − Blending 3.000.000 = closing 500.000 (Lati 175rb, Binsua 150rb, Sambarata 100rb, Gurimbang 50rb, BMO 3 25rb). Band min–max per site: Lati 100–250rb, Binsua 60–150rb, Sambarata 100–250rb, Gurimbang 20–50rb, BMO 3 10–25rb.
+**Contoh SIMULASI:** Available 3.500.000 − Blending 3.000.000 = closing 500.000 (Lati 175rb, Binungan 150rb, Sambarata 100rb, Gurimbang 50rb, BMO 3 25rb). Band min–max per site: Lati 100–250rb, Binungan 60–150rb, Sambarata 100–250rb, Gurimbang 20–50rb, BMO 3 10–25rb.

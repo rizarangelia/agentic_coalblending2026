@@ -7,16 +7,16 @@ DASH_HTML = r"""<!DOCTYPE html><html lang="id"><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-:root{--bg:#0b1012;--p:#131c1f;--p2:#172225;--l:#23312f;--ink:#e8efee;--m:#8aa09c;--g:#34c759;--a:#f6b53c;--r:#ef5350;--b:#4aa3df;--gold:#e9c84a}
+:root{--bg:#1a1a19;--p:#20201f;--p2:#262523;--l:#37342f;--ink:#f0efec;--m:#c3c2b7;--g:#c6613f;--a:#e0a44e;--r:#ff6159;--b:#6b9bd1;--gold:#e9c84a}
 *{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--ink);font:14px 'IBM Plex Sans',sans-serif;display:flex;min-height:100vh}
 aside{width:212px;background:var(--p);border-right:1px solid var(--l);padding:18px 12px;position:sticky;top:0;height:100vh;flex:none}
 .logo{font:900 17px Archivo;padding:0 8px 16px}.logo em{color:var(--g);font-style:normal}.logo small{display:block;font:600 9px 'IBM Plex Mono';color:var(--g);letter-spacing:.16em}
 .nav{display:flex;flex-direction:column;gap:4px}.nav a{color:var(--m);text-decoration:none;padding:9px 11px;border-radius:9px;font-size:13px;border:1px solid transparent}
 .nav a.on{background:var(--p2);color:var(--ink);border-color:var(--l)}.nav a:hover{color:var(--ink)}
-.foot{position:absolute;bottom:14px;left:12px;right:12px;font:10px 'IBM Plex Mono';color:#5f7470}
+.foot{position:absolute;bottom:14px;left:12px;right:12px;font:10px 'IBM Plex Mono';color:#8a857c}
 main{flex:1;padding:22px 26px 70px;max-width:1160px}
 .hd{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.hd h1{font:800 20px Archivo}
-.badge{font:700 9.5px 'IBM Plex Mono';padding:4px 10px;border-radius:16px;background:rgba(52,199,89,.14);color:#7fe39b;border:1px solid rgba(52,199,89,.35)}
+.badge{font:700 9.5px 'IBM Plex Mono';padding:4px 10px;border-radius:16px;background:rgba(198,97,63,.14);color:#e0a37f;border:1px solid rgba(198,97,63,.35)}
 .sub{font:11px 'IBM Plex Mono';color:var(--m);margin:4px 0 16px}
 h2{font:800 15px Archivo;border-bottom:1px solid var(--l);padding-bottom:7px;margin:26px 0 6px}
 .cap{font:11.5px;color:var(--m);margin-bottom:12px}
@@ -27,7 +27,7 @@ th{font-size:9.5px;color:var(--m);text-transform:uppercase;letter-spacing:.05em}
 th:first-child,td:first-child{text-align:left;font-family:'IBM Plex Sans'}
 tr:last-child td{border-bottom:none}.tw{overflow-x:auto}
 .pos{color:var(--g)}.neg{color:var(--r)}.amb{color:var(--a)}.mut{color:var(--m)}
-.pillOK{color:#7fe39b}.pillMIN,.pillMAX{color:var(--a)}
+.pillOK{color:#e0a37f}.pillMIN,.pillMAX{color:var(--a)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:960px){.grid2{grid-template-columns:1fr}}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:6px}@media(max-width:960px){.kpis{grid-template-columns:1fr 1fr}}
 .kpi{background:var(--p);border:1px solid var(--l);border-left:3px solid var(--g);border-radius:11px;padding:12px 14px}
@@ -38,11 +38,11 @@ tr:last-child td{border-bottom:none}.tw{overflow-x:auto}
 .sl{background:var(--p2);border:1px solid var(--l);border-radius:10px;padding:10px 12px}
 .sl b{font-size:12px}.sl .val{font:700 13px 'IBM Plex Mono';color:var(--g)}
 input[type=range]{width:100%;accent-color:var(--g)}
-.mx td.dis{color:#3a4a47;background:rgba(255,255,255,.015)}
+.mx td.dis{color:#57534c;background:rgba(255,255,255,.015)}
 .spin{color:var(--a);font:600 11px 'IBM Plex Mono';display:none}
 canvas{max-height:280px}
 .alerts .al{display:flex;gap:9px;border:1px solid var(--l);border-radius:9px;padding:8px 11px;margin-bottom:6px;font-size:12px;background:var(--p2)}
-.tag{font:700 8.5px 'IBM Plex Mono';padding:2px 6px;border-radius:4px;color:#0b1012;height:fit-content;margin-top:2px}
+.tag{font:700 8.5px 'IBM Plex Mono';padding:2px 6px;border-radius:4px;color:#1a1a19;height:fit-content;margin-top:2px}
 section{display:none}section.on{display:block}
 .bellw{position:relative;margin-left:auto}
 .bell{width:38px;height:38px;border-radius:10px;background:var(--p2);border:1px solid var(--l);display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer}
@@ -51,14 +51,14 @@ section{display:none}section.on{display:block}
 .drawer.open{display:block}
 .dh{display:flex;gap:8px;align-items:center;padding:11px 13px;border-bottom:1px solid var(--l);background:var(--p2);position:sticky;top:0}
 .fbtn{font:600 10px 'IBM Plex Mono';padding:4px 10px;border-radius:14px;border:1px solid var(--l);background:transparent;color:var(--m);cursor:pointer}
-.fbtn.on{border-color:var(--g);color:#7fe39b;background:rgba(52,199,89,.1)}
+.fbtn.on{border-color:var(--g);color:#e0a37f;background:rgba(198,97,63,.1)}
 .aitem{display:flex;gap:10px;padding:11px 13px;border-bottom:1px solid var(--l);align-items:flex-start}
 .dot{width:9px;height:9px;border-radius:50%;flex:none;margin-top:5px}
 .d-CRITICAL{background:var(--r);box-shadow:0 0 8px rgba(239,83,80,.6)}.d-WARNING{background:var(--a);box-shadow:0 0 8px rgba(246,181,60,.5)}.d-INFO{background:var(--b)}
 .aitem .m{flex:1;font-size:12px}.aitem .m b{font-size:12px}
 .state{font:700 8.5px 'IBM Plex Mono';padding:2px 7px;border-radius:4px}
-.s-new{background:rgba(239,83,80,.15);color:#ffb3b1}.s-ack{background:rgba(74,163,223,.15);color:#8ecbf2}
-.abtn{font:700 9.5px 'IBM Plex Mono';padding:4px 10px;border-radius:6px;cursor:pointer;border:none;background:rgba(74,163,223,.15);color:#8ecbf2}
+.s-new{background:rgba(239,83,80,.15);color:#ffb3b1}.s-ack{background:rgba(74,163,223,.15);color:#9dc0e0}
+.abtn{font:700 9.5px 'IBM Plex Mono';padding:4px 10px;border-radius:6px;cursor:pointer;border:none;background:rgba(74,163,223,.15);color:#9dc0e0}
 #toast{position:fixed;bottom:18px;right:18px;z-index:99;display:flex;flex-direction:column;gap:8px}
 .tst{background:var(--p);border:1px solid var(--l);border-left:3px solid var(--r);border-radius:11px;padding:11px 14px;max-width:380px;font-size:12.5px;box-shadow:0 12px 34px rgba(0,0,0,.5);animation:tin .25s}
 .tst.W{border-left-color:var(--a)}@keyframes tin{from{transform:translateY(12px);opacity:0}}
@@ -66,11 +66,38 @@ section{display:none}section.on{display:block}
 .note{background:var(--p2);border-left:3px solid var(--g);border-radius:0 9px 9px 0;padding:10px 13px;font-size:12.5px;margin-top:10px}
 .note.r{border-color:var(--r)}.note.a2{border-color:var(--a)}.note.b2{border-color:var(--b)}
 .ax{font:9.5px 'IBM Plex Mono';fill:var(--m)}.bt{font:10px 'IBM Plex Mono';fill:var(--ink)}svg.sv{display:block;width:100%;height:auto}
-a.btn{background:var(--g);color:#06210f;font:700 12px 'IBM Plex Sans';padding:8px 14px;border-radius:9px;text-decoration:none}
+a.btn{background:var(--g);color:#ffffff;font:700 12px 'IBM Plex Sans';padding:8px 14px;border-radius:9px;text-decoration:none}
+/* ===== Monitoring Realtime ===== */
+.live{display:inline-flex;align-items:center;gap:7px;font:700 9.5px 'IBM Plex Mono';padding:4px 11px;border-radius:16px;background:rgba(198,97,63,.14);color:#e0a37f;border:1px solid rgba(198,97,63,.4);letter-spacing:.08em}
+.live .pulse{width:8px;height:8px;border-radius:50%;background:var(--g);box-shadow:0 0 0 0 rgba(198,97,63,.7);animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(198,97,63,.6)}70%{box-shadow:0 0 0 9px rgba(198,97,63,0)}100%{box-shadow:0 0 0 0 rgba(198,97,63,0)}}
+.clock{font:700 12px 'IBM Plex Mono';color:var(--ink)}.upd{font:10.5px 'IBM Plex Mono';color:var(--m)}
+.mapwrap{position:relative;background:linear-gradient(160deg,#1e1d1b 0%,#20201f 55%,#232a2d 100%);border:1px solid var(--l);border-radius:14px;overflow:hidden}
+.mapwrap svg{display:block;width:100%;height:auto}
+.route{fill:none;stroke:#6b9bd1;stroke-opacity:.22;stroke-width:2.4;stroke-dasharray:2 7;stroke-linecap:round}
+.wake{fill:none;stroke:#c6613f;stroke-opacity:.35;stroke-width:2}
+.snode{fill:var(--p2);stroke:var(--l);stroke-width:1.4}
+.sring{fill:none;stroke:var(--g);stroke-width:3.4;stroke-linecap:round;transition:stroke-dasharray .6s}
+.slabel{font:700 12px Archivo;fill:var(--ink)}.smeta{font:9px 'IBM Plex Mono';fill:var(--m)}
+.vgrp{transition:transform .95s linear;cursor:pointer}
+.vhull{transition:fill .4s,stroke .2s}
+.vgrp:hover .vhull{stroke:#f0efec;stroke-width:1.3px;filter:drop-shadow(0 0 5px rgba(240,239,236,.7))}
+#mon_sites g,#mon_ships g{cursor:pointer}
+#mon_sites g:hover text.slabel{fill:#fff}#mon_sites g:hover circle:first-child{filter:drop-shadow(0 0 6px rgba(240,239,236,.5))}
+#mon_ships g:hover path{stroke:#f0efec;stroke-width:2px}
+#mon_svg text,#mon_svg .vgrp{-webkit-user-select:none;user-select:none}
+.leg{display:flex;gap:16px;flex-wrap:wrap;font:10.5px 'IBM Plex Mono';color:var(--m);padding:10px 4px 2px}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.vstat{font:700 8.5px 'IBM Plex Mono';padding:2px 7px;border-radius:5px}
+.v-Loading{background:rgba(233,200,74,.16);color:#e9c84a}
+.v-Enroute{background:rgba(198,97,63,.16);color:#e0a37f}
+.v-Anchorage{background:rgba(107,155,209,.16);color:#9dc0e0}
+.v-Discharge{background:rgba(125,155,118,.18);color:#a9c39f}
 </style></head><body>
 <aside><div class="logo">berau<em>coal</em><small>COALBLEND AI</small></div>
 <div class="nav">
 <a href="#" class="on" data-s="ov">📊 Dashboard</a>
+<a href="#" data-s="mon">🛰️ Monitoring Realtime <span style="font-size:8px;color:var(--g)">LIVE</span></a>
 <a href="#" data-s="ap">📦 Available Product</a>
 <a href="#" data-s="bp">⚖️ Blending Plan</a>
 <a href="#" data-s="rv">💰 Revenue</a>
@@ -104,6 +131,33 @@ a.btn{background:var(--g);color:#06210f;font:700 12px 'IBM Plex Sans';padding:8p
 <div class="grid2">
 <div class="card"><h2 style="border:none;margin:0 0 8px">📊 Coal Balance Flow per Site (MT)</h2><canvas id="c_bal"></canvas></div>
 <div class="card"><h2 style="border:none;margin:0 0 8px">🔥 Kualitas (CV GAR) per Site</h2><canvas id="c_cv"></canvas></div></div>
+</section>
+
+<section id="mon">
+<div class="hd" style="margin-bottom:4px"><h2 style="border:none;margin:0">🛰️ Spatial Monitoring — Barge Corridor</h2>
+<span class="live"><span class="pulse"></span>LIVE</span>
+<span class="clock" id="mon_clock">--:--:--</span></div>
+<div class="cap" id="mon_src">memuat feed korridor…</div>
+<div class="kpis" style="margin-bottom:14px">
+<div class="kpi"><div class="l">Tongkang Aktif</div><div class="v" id="m_barges">—</div><div class="d">tug &amp; barge di korridor</div></div>
+<div class="kpi b"><div class="l">Kapal di Anchorage</div><div class="v" id="m_ships">—</div><div class="d">kapal buyer sedang diisi</div></div>
+<div class="kpi a"><div class="l">Tonase En-route</div><div class="v" id="m_enroute">—</div><div class="d">kargo tongkang berlayar (MT)</div></div>
+<div class="kpi"><div class="l">Loading / Discharging</div><div class="v" id="m_ld">—</div><div class="d">muat di situs / bongkar ke kapal</div></div></div>
+<div class="mapwrap">
+<svg id="mon_svg" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet">
+<defs><radialGradient id="sea" cx="86%" cy="53%" r="46%">
+<stop offset="0%" stop-color="#2a3a40"/><stop offset="100%" stop-color="#20201f" stop-opacity="0"/></radialGradient></defs>
+<rect x="0" y="0" width="1000" height="560" fill="url(#sea)"/>
+<text x="905" y="34" text-anchor="middle" class="smeta" style="fill:#9dc0e0;letter-spacing:.12em">ANCHORAGE</text>
+<g id="mon_routes"></g><g id="mon_sites"></g><g id="mon_ships"></g><g id="mon_barges"></g></svg></div>
+<div class="leg" id="mon_leg"></div>
+<h2>⚓ Kapal Buyer di Anchorage</h2>
+<div class="card tw"><table id="t_ships"></table></div>
+<h2>🚢 Barge Tracking — Live (per tongkang)</h2>
+<div class="card tw"><table id="t_mon"></table></div>
+<div class="note b2" style="margin-top:0"><b>Sumber feed:</b> <span id="mon_note">simulasi barge corridor</span>.
+Komposisi tongkang per kapal = racikan blending nyata (matriks site×brand solver). Integrasi AIS
+asli (Data Docked) tersedia server-side via <code>DATADOCKED_API_KEY</code> — tidak di-poll agar hemat kredit.</div>
 </section>
 
 <section id="ap">
@@ -143,22 +197,22 @@ a.btn{background:var(--g);color:#06210f;font:700 12px 'IBM Plex Sans';padding:8p
 <div class="cap">Gambaran end-in-mind fase 3 — membutuhkan data vessel/laycan &amp; histori aktual-vs-plan. Semua angka di bawah simulasi.</div>
 <div class="grid2">
 <div class="card"><h2 style="border:none;margin:0 0 8px">Probabilistic Stock Fan (P10–P50–P90)</h2>
-<svg class="sv" viewBox='0 0 560 230'><line x1='44' y1='14' x2='500' y2='14' stroke='#1c2a28'/><line x1='44' y1='61' x2='500' y2='61' stroke='#1c2a28'/><line x1='44' y1='108' x2='500' y2='108' stroke='#1c2a28'/><line x1='44' y1='155' x2='500' y2='155' stroke='#1c2a28'/><line x1='44' y1='202' x2='500' y2='202' stroke='#1c2a28'/>
+<svg class="sv" viewBox='0 0 560 230'><line x1='44' y1='14' x2='500' y2='14' stroke='#33302b'/><line x1='44' y1='61' x2='500' y2='61' stroke='#33302b'/><line x1='44' y1='108' x2='500' y2='108' stroke='#33302b'/><line x1='44' y1='155' x2='500' y2='155' stroke='#33302b'/><line x1='44' y1='202' x2='500' y2='202' stroke='#33302b'/>
 <text class='ax' x='38' y='17' text-anchor='end'>650</text><text class='ax' x='38' y='111' text-anchor='end'>425</text><text class='ax' x='38' y='205' text-anchor='end'>200</text>
 <path d='M44 52 L120 58 L196 60 L272 64 L348 67 L424 65 L500 60 L500 164 L424 166 L348 160 L272 148 L196 133 L120 121 L44 102 Z' fill='rgba(74,163,223,.16)'/>
-<path d='M44 77 L120 89 L196 95 L272 106 L348 114 L424 116 L500 112' fill='none' stroke='#4aa3df' stroke-width='2.4'/>
+<path d='M44 77 L120 89 L196 95 L272 106 L348 114 L424 116 L500 112' fill='none' stroke='#6b9bd1' stroke-width='2.4'/>
 <line x1='44' y1='164' x2='500' y2='164' stroke='#ef5350' stroke-dasharray='5 4'/><circle cx='424' cy='166' r='6' fill='none' stroke='#ef5350' stroke-width='2'/>
-<text class='bt' x='504' y='167' style='fill:#ef5350;font-size:9px'>band min</text><text class='bt' x='504' y='115' style='fill:#4aa3df;font-size:9px'>P50</text>
+<text class='bt' x='504' y='167' style='fill:#ef5350;font-size:9px'>band min</text><text class='bt' x='504' y='115' style='fill:#6b9bd1;font-size:9px'>P50</text>
 <text class='ax' x='44' y='220' text-anchor='middle'>Jun</text><text class='ax' x='196' y='220' text-anchor='middle'>Agu</text><text class='ax' x='348' y='220' text-anchor='middle'>Okt</text><text class='ax' x='500' y='220' text-anchor='middle'>Des</text></svg>
 <div class="note r">P10 menembus band min di <b>November</b> — deteksi risiko stok kritis 4 bulan lebih awal; proyeksi deterministik tidak akan menunjukkannya.</div></div>
 <div class="card"><h2 style="border:none;margin:0 0 8px">Laycan–Stock Matcher</h2>
 <svg class="sv" viewBox='0 0 560 220'>
-<rect x='60' y='18' width='90' height='20' rx='5' fill='#46c06a' fill-opacity='.28' stroke='#46c06a'/><text class='bt' x='65' y='32' style='font-size:9px'>MV ORIENT STAR · Mahoni B 65rb</text><text class='ax' x='156' y='32' style='fill:#46c06a;font-weight:700;font-size:9px'>OK</text>
+<rect x='60' y='18' width='90' height='20' rx='5' fill='#7d9b76' fill-opacity='.28' stroke='#7d9b76'/><text class='bt' x='65' y='32' style='font-size:9px'>MV ORIENT STAR · Mahoni B 65rb</text><text class='ax' x='156' y='32' style='fill:#7d9b76;font-weight:700;font-size:9px'>OK</text>
 <rect x='140' y='58' width='95' height='20' rx='5' fill='#e9c84a' fill-opacity='.28' stroke='#e9c84a'/><text class='bt' x='145' y='72' style='font-size:9px'>MV PACIFIC · CV 4600 55rb</text><text class='ax' x='241' y='72' style='fill:#e9c84a;font-weight:700;font-size:9px'>KETAT −2 hr</text>
 <rect x='225' y='98' width='105' height='20' rx='5' fill='#ef5350' fill-opacity='.28' stroke='#ef5350'/><text class='bt' x='230' y='112' style='font-size:9px'>MV HARMONY · Sungkai B 70rb</text><text class='ax' x='336' y='112' style='fill:#ef5350;font-weight:700;font-size:9px'>GAP STOK</text>
-<rect x='300' y='138' width='95' height='20' rx='5' fill='#46c06a' fill-opacity='.28' stroke='#46c06a'/><text class='bt' x='305' y='152' style='font-size:9px'>MV NUSANTARA · Eboni 40rb</text><text class='ax' x='401' y='152' style='fill:#46c06a;font-weight:700;font-size:9px'>OK</text>
-<rect x='380' y='178' width='100' height='20' rx='5' fill='#46c06a' fill-opacity='.28' stroke='#46c06a'/><text class='bt' x='385' y='192' style='font-size:9px'>MV BORNEO · CV 4200 80rb</text><text class='ax' x='486' y='192' style='fill:#46c06a;font-weight:700;font-size:9px'>OK</text></svg>
-<div class="note a2"><b>MV HARMONY</b> GAP STOK: sistem mengusulkan aksi terurut — geser laycan +4 hari · pindah loading ke Binsua · re-blend parsial dari Lati; demurrage dihitung per opsi.</div></div></div>
+<rect x='300' y='138' width='95' height='20' rx='5' fill='#7d9b76' fill-opacity='.28' stroke='#7d9b76'/><text class='bt' x='305' y='152' style='font-size:9px'>MV NUSANTARA · Eboni 40rb</text><text class='ax' x='401' y='152' style='fill:#7d9b76;font-weight:700;font-size:9px'>OK</text>
+<rect x='380' y='178' width='100' height='20' rx='5' fill='#7d9b76' fill-opacity='.28' stroke='#7d9b76'/><text class='bt' x='385' y='192' style='font-size:9px'>MV BORNEO · CV 4200 80rb</text><text class='ax' x='486' y='192' style='fill:#7d9b76;font-weight:700;font-size:9px'>OK</text></svg>
+<div class="note a2"><b>MV HARMONY</b> GAP STOK: sistem mengusulkan aksi terurut — geser laycan +4 hari · pindah loading ke Binungan · re-blend parsial dari Lati; demurrage dihitung per opsi.</div></div></div>
 <div class="card" style="margin-top:14px"><h2 style="border:none;margin:0 0 8px">Survey Reconciliation Radar</h2>
 <div class="tw"><table><tr><th>CPP</th><th>Book</th><th>Survey</th><th>Varians</th><th>Trend 3 bln</th><th>Status</th></tr>
 <tr><td>Lati</td><td>200.000</td><td>198.400</td><td class="mut">−0,8%</td><td class="mut">−0,5 · −0,7 · −0,8</td><td class="pos">Wajar</td></tr>
@@ -176,16 +230,17 @@ a.btn{background:var(--g);color:#06210f;font:700 12px 'IBM Plex Sans';padding:8p
 </main>
 <script>
 const F=v=>Math.round(v).toLocaleString('id-ID'), F1=v=>v.toLocaleString('id-ID',{maximumFractionDigits:0});
-const PAL=['#34c759','#4aa3df','#e9c84a','#f6b53c','#ef5350','#8aa09c','#7fe39b','#8ecbf2'];
-const GRID={color:'#1c2a28'}, TICK={color:'#8aa09c',font:{family:'IBM Plex Mono',size:10}};
-Chart.defaults.color='#8aa09c'; Chart.defaults.font.family='IBM Plex Sans';
+const PAL=['#c6613f','#6b9bd1','#e9c84a','#e0a44e','#ff6159','#7d9b76','#d98f6a','#9dc0e0'];
+const GRID={color:'#33302b'}, TICK={color:'#c3c2b7',font:{family:'IBM Plex Mono',size:10}};
+Chart.defaults.color='#c3c2b7'; Chart.defaults.font.family='IBM Plex Sans';
 let ST=null, charts={}, deb=null;
 
 document.querySelectorAll('.nav a[data-s]').forEach(a=>a.onclick=e=>{e.preventDefault();
  document.querySelectorAll('.nav a[data-s]').forEach(x=>x.classList.remove('on'));a.classList.add('on');
  document.querySelectorAll('main section').forEach(s=>s.classList.remove('on'));
  document.getElementById(a.dataset.s).classList.add('on');
- document.getElementById('title').textContent=a.textContent.replace(/^..\s*/,'');});
+ document.getElementById('title').textContent=a.textContent.replace(/^..\s*/,'').replace(/\s*LIVE$/,'');
+ a.dataset.s==='mon'?monStart():monStop();});
 
 function mk(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg);}
 async function load(){ST=await (await fetch('/api/state')).json();renderAll();buildSliders();}
@@ -206,11 +261,11 @@ function renderAll(){
   h+=`<tr><td>${x.site}</td><td>${F(x.opening)}</td><td class=mut>${F1(x.cv_open)}</td><td>${F(x.cg)}</td><td class=mut>${F1(x.cv_cg)}</td><td>${F(ship)}</td><td class=mut>${F1(x.cv)}</td><td><b>${F(cl)}</b></td><td class=mut>${F1(x.cv)}</td><td class="${st[0]}">${st[1]}</td></tr>`});
  document.getElementById('t_bal').innerHTML=h+'<tr><td class=mut style="font-size:10px" colspan=10>*CV shipment & closing memakai CV komposit available per site (single-quality per site pada MVP 1)</td></tr>';
  mk('c_bal',{type:'bar',data:{labels:S.map(x=>x.site),datasets:[
-  {label:'Opening',data:S.map(x=>x.opening),backgroundColor:'#4aa3df'},
-  {label:'Coal Getting',data:S.map(x=>x.cg),backgroundColor:'#34c759'},
+  {label:'Opening',data:S.map(x=>x.opening),backgroundColor:'#6b9bd1'},
+  {label:'Coal Getting',data:S.map(x=>x.cg),backgroundColor:'#7d9b76'},
   {label:'Shipment',data:S.map(x=>-s.site_ship[x.site]),backgroundColor:'#ef5350'},
   {label:'Closing',data:S.map(x=>s.closing[x.site]),backgroundColor:'#e9c84a'}]},
-  options:{scales:{x:{grid:GRID,ticks:TICK},y:{grid:GRID,ticks:TICK}},plugins:{legend:{labels:{color:'#8aa09c'}}}}});
+  options:{scales:{x:{grid:GRID,ticks:TICK},y:{grid:GRID,ticks:TICK}},plugins:{legend:{labels:{color:'#c3c2b7'}}}}});
  mk('c_cv',{type:'bar',data:{labels:S.map(x=>x.site),datasets:[{label:'CV GAR',data:S.map(x=>x.cv),backgroundColor:S.map((_,i)=>PAL[i])}]},
   options:{indexAxis:'y',scales:{x:{grid:GRID,ticks:TICK,min:3000},y:{grid:GRID,ticks:TICK}},plugins:{legend:{display:false}}}});
  renderBell();
@@ -221,9 +276,9 @@ function renderAll(){
   h+=`<tr><td>${x.site}</td><td>${F(x.opening)}</td><td>${F(x.cg)}</td><td><b>${F(x.available)}</b></td><td class=mut>${F1(x.cv)}</td><td>${F(x.jetty)}</td><td class="${u>100?'amb':'pos'}">${u.toFixed(0)}%${u>100?' ⚠':''}</td></tr>`});
  document.getElementById('t_av').innerHTML=h;
  mk('c_av',{type:'bar',data:{labels:S.map(x=>x.site),datasets:[
-  {label:'Opening Stock',data:S.map(x=>x.opening),backgroundColor:'#4aa3df',stack:'a'},
-  {label:'Coal Getting',data:S.map(x=>x.cg),backgroundColor:'#34c759',stack:'a'}]},
-  options:{scales:{x:{stacked:true,grid:GRID,ticks:TICK},y:{stacked:true,grid:GRID,ticks:TICK}},plugins:{legend:{labels:{color:'#8aa09c'}}}}});
+  {label:'Opening Stock',data:S.map(x=>x.opening),backgroundColor:'#6b9bd1',stack:'a'},
+  {label:'Coal Getting',data:S.map(x=>x.cg),backgroundColor:'#7d9b76',stack:'a'}]},
+  options:{scales:{x:{stacked:true,grid:GRID,ticks:TICK},y:{stacked:true,grid:GRID,ticks:TICK}},plugins:{legend:{labels:{color:'#c3c2b7'}}}}});
  renderBlend(); renderRev();
 }
 function renderBlend(){
@@ -238,7 +293,7 @@ function renderBlend(){
  h+='<tr><td><b>Total Brand</b></td>'+B.map(b=>`<td><b>${F(s.brand_total[b])}</b></td>`).join('')+`<td><b>${F(s.total_ship)}</b></td></tr>`;
  document.getElementById('t_mx').innerHTML=h;
  mk('c_mx',{type:'bar',data:{labels:B,datasets:S.map((x,i)=>({label:x.site,data:B.map(b=>s.x[x.site][b]),backgroundColor:PAL[i],stack:'s'}))},
-  options:{scales:{x:{stacked:true,grid:GRID,ticks:TICK},y:{stacked:true,grid:GRID,ticks:TICK}},plugins:{legend:{labels:{color:'#8aa09c'}}}}});
+  options:{scales:{x:{stacked:true,grid:GRID,ticks:TICK},y:{stacked:true,grid:GRID,ticks:TICK}},plugins:{legend:{labels:{color:'#c3c2b7'}}}}});
 }
 function renderRev(){
  const s=sol(),B=ST.brands;
@@ -319,5 +374,74 @@ function renderPI(){
  mk('c_lad',{type:'bar',data:{labels:B,datasets:[{label:'$/1000 kcal',data:B.map(b=>ST.price[b]/ST.cv_max[b]*1000),backgroundColor:B.map((_,i)=>PAL[i])}]},
   options:{indexAxis:'y',scales:{x:{grid:GRID,ticks:TICK},y:{grid:GRID,ticks:TICK}},plugins:{legend:{display:false}}}});
 }
+// ===== MONITORING REALTIME — Barge Corridor (tongkang → kapal buyer) =====
+const SITE_COL={'Lati':'#c6613f','Binungan':'#6b9bd1','Sambarata':'#e9c84a','Gurimbang':'#7d9b76','BMO3':'#d98f6a'};
+let monTimer=null, monBargeEls={}, monStaticKey='';
+function monStart(){ if(!monTimer){ monPoll(); monTimer=setInterval(monPoll,3000); } }
+function monStop(){ if(monTimer){ clearInterval(monTimer); monTimer=null; } }
+async function monPoll(){ let d; try{ d=await (await fetch('/api/monitoring')).json(); }catch(e){ return; } if(d.error) return; monRender(d); }
+const $m=id=>document.getElementById(id);
+function monRender(d){
+ $m('mon_clock').textContent=d.ts.slice(11);
+ $m('mon_src').textContent=`${d.sites.length} situs · ${d.ships.length} kapal aktif · ${d.barges.length} tongkang · ${d.queued.length} antre · run ${d.meta?d.meta.run_id:'-'}`;
+ $m('mon_note').textContent=d.source;
+ const k=d.kpi;
+ $m('m_barges').textContent=k.barges; $m('m_ships').textContent=k.ships;
+ $m('m_enroute').textContent=F(k.enroute_mt||0); $m('m_ld').textContent=`${k.loading} / ${k.discharging}`;
+ const CF=d.confluence;
+ // ---- lapisan statis (routes + sites + legend): gambar ulang saat struktur berubah ----
+ const key=d.sites.map(s=>s.site).join()+'|'+d.ships.map(s=>s.brand).join();
+ if(monStaticKey!==key){
+  monStaticKey=key;
+  let rr=d.sites.map(s=>`<path class="route" d="M${s.x} ${s.y} L${CF.x} ${CF.y}"/>`).join('');
+  rr+=d.ships.map(sh=>`<path class="route" d="M${CF.x} ${CF.y} L${sh.x} ${sh.y}"/>`).join('');
+  rr+=`<circle cx="${CF.x}" cy="${CF.y}" r="4" fill="#8a857c"/><text class="smeta" x="${CF.x}" y="${CF.y-9}" text-anchor="middle">Muara</text>`;
+  $m('mon_routes').innerHTML=rr;
+  $m('mon_sites').innerHTML=d.sites.map(s=>{
+   const col=SITE_COL[s.site]||'#c6613f', u=Math.max(0,Math.min(1.2,s.util||0)), C=2*Math.PI*18, dash=`${(Math.min(u,1)*C).toFixed(1)} ${C.toFixed(1)}`;
+   return `<g transform="translate(${s.x},${s.y})">
+    <title>Situs ${s.site} · utilisasi jetty ${(u*100).toFixed(0)}%${u>1?' (OVER)':''} · CV ${s.cv?F1(s.cv):'-'} · shipment ${s.ship?F(s.ship):'-'} MT</title>
+    <circle r="14" fill="#262523" stroke="${col}" stroke-width="1.6"/>
+    <circle r="18" fill="none" stroke="${u>1?'#ff6159':col}" stroke-width="3.2" stroke-dasharray="${dash}" transform="rotate(-90)"/>
+    <text class="slabel" x="0" y="-27" text-anchor="middle">${s.site}</text>
+    <text class="smeta" x="0" y="31" text-anchor="middle">${(u*100).toFixed(0)}% jetty · ${s.cv?F1(s.cv):''}</text></g>`;}).join('');
+  $m('mon_leg').innerHTML=Object.keys(SITE_COL).map(s=>`<span><i style="background:${SITE_COL[s]}"></i>${s}</span>`).join('')
+   +`<span style="margin-left:auto">warna tongkang = situs asal · racikan blend per kapal · update 3 dtk</span>`;
+ }
+ // ---- kapal buyer di anchorage (rebuild tiap poll: fill berubah) ----
+ $m('mon_ships').innerHTML=d.ships.map(sh=>`<g transform="translate(${sh.x},${sh.y})">
+   <title>${sh.name} · Buyer ${sh.buyer} · Brand ${sh.brand} · ${sh.arrived_barges}/${sh.need_barges} tongkang (${(sh.fill*100).toFixed(0)}% terisi) · ${F(sh.total_mt)} MT</title>
+   <path d="M-36 -13 L34 -13 L40 0 L34 13 L-36 13 Z" fill="#20201f" stroke="#6b9bd1" stroke-width="1.6"/>
+   <rect x="-30" y="5" width="60" height="5" rx="2.5" fill="#33302b"/>
+   <rect x="-30" y="5" width="${(60*sh.fill).toFixed(0)}" height="5" rx="2.5" fill="#7d9b76"/>
+   <text class="slabel" x="0" y="-19" text-anchor="middle" style="font-size:10px">⚓ ${sh.name}</text>
+   <text x="0" y="1" text-anchor="middle" style="font:700 9px 'IBM Plex Mono';fill:#f0efec">${sh.brand}</text>
+   <text class="smeta" x="0" y="24" text-anchor="middle">${sh.arrived_barges}/${sh.need_barges} tongkang · ${sh.buyer}</text></g>`).join('');
+ // ---- tongkang: upsert + reconcile agar animasi mulus (warna = situs asal) ----
+ const layer=$m('mon_barges'), seen={};
+ d.barges.forEach(b=>{ seen[b.id]=1; const col=SITE_COL[b.site]||'#c6613f';
+  let g=monBargeEls[b.id];
+  if(!g){ g=document.createElementNS('http://www.w3.org/2000/svg','g'); g.setAttribute('class','vgrp');
+   g.innerHTML=`<title></title><path class="wake" d="M-12 0 L-5 0"/><rect class="vhull" x="-6" y="-3.4" width="12" height="6.8" rx="2"/>`;
+   layer.appendChild(g); monBargeEls[b.id]=g; }
+  g.setAttribute('transform',`translate(${b.x},${b.y}) rotate(${b.heading})`);
+  g.querySelector('title').textContent=`Tongkang ${b.id} · asal ${b.site} → ${b.ship} (${b.brand}, ${b.buyer}) · ${b.status} · ${F(b.cargo_mt)} MT${b.status==='En-route'?' · ETA '+b.eta_min+' mnt':''}`;
+  const hull=g.querySelector('.vhull'); hull.setAttribute('fill',col);
+  hull.setAttribute('opacity', b.status==='Discharging'?'0.5':'1');
+ });
+ Object.keys(monBargeEls).forEach(id=>{ if(!seen[id]){ monBargeEls[id].remove(); delete monBargeEls[id]; }});
+ // ---- tabel kapal buyer (aktif + antre) ----
+ let hs='<tr><th>Kapal</th><th style="text-align:left">Buyer</th><th>Brand</th><th>Tonase (MT)</th><th>Tongkang</th><th>Progress</th></tr>';
+ d.ships.forEach(sh=>{hs+=`<tr><td>${sh.name}</td><td style="text-align:left">${sh.buyer}</td><td>${sh.brand}</td><td>${F(sh.total_mt)}</td><td>${sh.arrived_barges}/${sh.need_barges}</td><td class="${sh.fill>0.6?'pos':'amb'}">${(sh.fill*100).toFixed(0)}%</td></tr>`});
+ d.queued.forEach(q=>{hs+=`<tr><td class=mut>${q.name}</td><td style="text-align:left" class=mut>${q.buyer}</td><td class=mut>${q.brand}</td><td class=mut>${F(q.total_mt)}</td><td class=mut colspan=2>⏳ antre — belum di anchorage</td></tr>`});
+ $m('t_ships').innerHTML=hs;
+ // ---- tabel per tongkang ----
+ let h='<tr><th>Tongkang</th><th style="text-align:left">Asal</th><th style="text-align:left">→ Kapal (Brand)</th><th>Kargo (MT)</th><th>Status</th><th>Speed (kn)</th><th>ETA (mnt)</th></tr>';
+ d.barges.slice().sort((a,b)=>a.ship.localeCompare(b.ship)||a.site.localeCompare(b.site)).forEach(b=>{
+  const cls=b.status==='Loading'?'v-Loading':(b.status==='En-route'?'v-Enroute':(b.status==='Discharging'?'v-Discharge':'v-Anchorage'));
+  h+=`<tr><td>${b.id}</td><td style="text-align:left"><span style="color:${SITE_COL[b.site]}">●</span> ${b.site}</td><td style="text-align:left">${b.ship} <span class=mut>(${b.brand})</span></td><td>${F(b.cargo_mt)}</td><td><span class="vstat ${cls}">${b.status}</span></td><td class=mut>${b.speed_kn||'—'}</td><td class=mut>${b.status==='En-route'?b.eta_min:'—'}</td></tr>`});
+ $m('t_mon').innerHTML=h;
+}
+
 load();
 </script></body></html>"""

@@ -21,7 +21,7 @@ keywords: [coal getting, CG plan, mineplan, R3MMP, produksi, site]
 | Site | Volume (MT) | CV (GAR) |
 |---|---|---|
 | Lati | 600.000 | 5.000 |
-| Binungan (Binsua) | 1.000.000 | 4.950 |
+| Binungan (Binungan) | 1.000.000 | 4.950 |
 | Sambarata | 350.000 | 5.900 |
 | Gurimbang | 650.000 | 3.880 |
 | BMO 3 | 200.000 | 3.350 |

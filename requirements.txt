@@ -4,3 +4,7 @@
 Flask>=3.0          # web app: login, input data, review HITL, endpoint keputusan
 PuLP>=2.8           # LP solver (menyertakan binary CBC bawaan — tidak perlu instal solver terpisah)
 openpyxl>=3.1       # membaca input .xlsx (CSV dibaca modul standar, tanpa dependensi)
+requests>=2.31      # client HTTP untuk agents/marine_tracking.py (Data Docked vessel API)
+python-dotenv>=1.0  # baca .env (DATABASE_URL, DATADOCKED_API_KEY) saat dev lokal
+psycopg2-binary>=2.9  # driver Postgres — persistensi upload/run/keputusan ke defaultdb (Metabase)
+gunicorn>=21.0      # WSGI server produksi (Railway/Render). Linux only — lokal Windows tetap `python app.py`

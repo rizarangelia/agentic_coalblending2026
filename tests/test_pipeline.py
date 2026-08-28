@@ -34,7 +34,7 @@ def test_reject_negative():
 
 def test_infeasible_presolve():
     def mut(fx):
-        fx['plan_kapasitas'][0] = b"jetty,kapasitas_mt\nLati,300000\nBinsua,400000\nSambarata,200000\nGurimbang,200000\nBMO3,100000\n"
+        fx['plan_kapasitas'][0] = b"jetty,kapasitas_mt\nLati,300000\nBinungan,400000\nSambarata,200000\nGurimbang,200000\nBMO3,100000\n"
         return fx
     data, a1 = ingestion.ingest(load_fixtures(mut), M)
     C, a2 = constraint.build(M, data)

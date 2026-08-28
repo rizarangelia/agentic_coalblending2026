@@ -7,15 +7,22 @@ Graph:
 """
 import json, hashlib, datetime, uuid, pathlib
 
+import os
 ROOT = pathlib.Path(__file__).parent.parent
-TRACE = ROOT / 'output/trace.jsonl'
+DATA_DIR = pathlib.Path(os.environ.get('DATA_DIR', str(ROOT)))
+TRACE = DATA_DIR / 'output/trace.jsonl'
 
 def _now(): return datetime.datetime.now().isoformat(timespec='seconds')
 
 def _log(run_id, node, status, detail=None):
-    with open(TRACE, 'a') as f:
-        f.write(json.dumps({'run_id': run_id, 'ts': _now(), 'node': node,
-                            'status': status, 'detail': detail or {}}, ensure_ascii=False) + '\n')
+    # best-effort: jangan pernah memutus pipeline bila filesystem read-only (serverless)
+    try:
+        TRACE.parent.mkdir(parents=True, exist_ok=True)
+        with open(TRACE, 'a') as f:
+            f.write(json.dumps({'run_id': run_id, 'ts': _now(), 'node': node,
+                                'status': status, 'detail': detail or {}}, ensure_ascii=False) + '\n')
+    except Exception:
+        pass
 
 def lineage_of(files: dict, manifest: dict):
     """Sidik jari asal-usul data: hash tiap file input + versi manifest."""

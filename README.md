@@ -8,10 +8,27 @@ login + input data + alert engine + dashboard review.
     source .venv/bin/activate        # Windows: .venv\Scripts\activate
     pip install -r requirements.txt
 
-    # 2. jalankan aplikasi
+    # 2. (opsional tapi disarankan) hubungkan ke Postgres `defaultdb` (sumber Metabase)
+    cp .env.example .env             # lalu isi DATABASE_URL dengan koneksi Postgres Anda
+                                     # tabel dibuat otomatis saat app start (agents/db.py)
+
+    # 3. jalankan aplikasi
     python app.py                    # buka http://localhost:8080
 
 Login demo: planner / coalblend2026 · reviewer / review2026.
+
+## Persistensi Database & Metabase (arsitektur)
+Setiap **upload** dan setiap **run AI blending** di web otomatis ditulis ke Postgres `defaultdb`
+— DB yang sama yang dibaca Metabase, sehingga dashboard update otomatis (jalankan
+"Sync database schema" di Metabase satu kali agar tabel baru muncul).
+- Koneksi via `DATABASE_URL` di `.env` (Postgres cloud → `sslmode=require` ditambah otomatis).
+  Kosongkan untuk menonaktifkan DB → app tetap jalan pakai file JSON di `output/` (fail-safe).
+- Skema dibuat otomatis oleh `db.init()` saat startup; manual: `psql "$DATABASE_URL" -f schema.sql`.
+- Tabel history baru (append-only, audit): `coalblend_uploads`, `coalblend_input_data`,
+  `coalblend_runs`, `coalblend_run_scenarios`, `coalblend_decisions`, `coalblend_blending_history`.
+- Tabel Metabase lama di-refresh tiap run/approve: `business_process` (input), `blending_allocation`
+  (alokasi opsi disetujui) — dashboard existing langsung mencerminkan hasil terbaru.
+- Diagnostik koneksi non-fatal dicatat di `output/db.log`.
 Halaman:
 - /dashboard  → dashboard analitik (Coal Balance · Available Product · Blending Plan dgn slider
   deal live re-optimize · Matriks · Revenue) — gaya deployment Railway, kini di belakang login

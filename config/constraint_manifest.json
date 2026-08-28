@@ -4,11 +4,11 @@
     "versi": "1.1",
     "catatan": "Nilai bertanda simulasi=true adalah contoh dari sheet 'Contoh Model' dan WAJIB ditimpa data runtime dari 4 file input. Struktur & aturan bersifat tetap.",
     "baseline_validasi_revenue": 24225858.52,
-    "changelog": "v1.1: allowance CV 3800 hanya Gurimbang & BMO 3 (Binsua dicabut) — keputusan bisnis, meng-override sheet simulasi."
+    "changelog": "v1.1: allowance CV 3800 hanya Gurimbang & BMO 3 (Binungan dicabut) — keputusan bisnis, meng-override sheet simulasi."
   },
   "sites": [
     "Lati",
-    "Binsua",
+    "Binungan",
     "Sambarata",
     "Gurimbang",
     "BMO3"
@@ -34,7 +34,7 @@
       "CV 4200": 1,
       "CV 3800": 0
     },
-    "Binsua": {
+    "Binungan": {
       "Eboni": 1,
       "Mahoni B": 1,
       "Agathis": 1,
@@ -164,7 +164,7 @@
       "min": 100000,
       "max": 250000
     },
-    "Binsua": {
+    "Binungan": {
       "min": 60000,
       "max": 150000
     },

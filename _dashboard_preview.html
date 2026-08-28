@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CoalBlend AI — Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#0f1117;--card:#1a1d27;--card2:#22263a;--border:#2e3350;
+    --accent:#7c3aed;--accent2:#06b6d4;--accent3:#10b981;
+    --warn:#f59e0b;--danger:#ef4444;--text:#e2e8f0;--muted:#64748b;--radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+  .shell{display:flex;min-height:100vh;}
+  .sidebar{width:230px;background:var(--card);border-right:1px solid var(--border);padding:24px 0;flex-shrink:0;display:flex;flex-direction:column;}
+  .main{flex:1;overflow-x:hidden;}
+  .logo{padding:0 20px 28px;}
+  .logo-icon{font-size:28px;}
+  .logo-text{font-size:18px;font-weight:700;color:#fff;}
+  .logo-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:11px 20px;font-size:14px;color:var(--muted);border-left:3px solid transparent;}
+  .nav-item.active{color:#fff;background:rgba(124,58,237,.15);border-left-color:var(--accent);}
+  .nav-icon{font-size:18px;width:22px;text-align:center;}
+  .sidebar-footer{margin-top:auto;padding:16px 20px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid var(--border);background:var(--card);}
+  .topbar-title{font-size:20px;font-weight:700;}
+  .badge-live{background:rgba(16,185,129,.15);color:var(--accent3);border:1px solid var(--accent3);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:5px;}
+  .dot-live{width:7px;height:7px;border-radius:50%;background:var(--accent3);animation:pulse 1.5s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .page{padding:28px;}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:24px;}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;position:relative;overflow:hidden;}
+  .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+  .kpi.purple::before{background:var(--accent)}.kpi.cyan::before{background:var(--accent2)}.kpi.green::before{background:var(--accent3)}.kpi.amber::before{background:var(--warn)}.kpi.red::before{background:var(--danger)}
+  .kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+  .kpi-value{font-size:24px;font-weight:700;color:#fff;}
+  .kpi-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+  .kpi-icon{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:32px;opacity:.15;}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .section-title{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:16px;}
+  .section-title span{font-size:18px;}
+  .section-note{font-size:12px;color:var(--muted);margin:-10px 0 16px;line-height:1.5;}
+
+  .tbl-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{background:var(--card2);color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:10px 12px;text-align:left;white-space:nowrap;}
+  td{padding:10px 12px;border-top:1px solid var(--border);white-space:nowrap;}
+  tr:hover td{background:rgba(255,255,255,.02);}
+  tr.total-row td{background:var(--card2);font-weight:700;color:#fff;border-top:2px solid var(--border);}
+  td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .cv-tag{font-size:11px;color:var(--accent2);}
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge.ok{background:rgba(16,185,129,.1);color:var(--accent3);border:1px solid var(--accent3);}
+  .badge.bad{background:rgba(239,68,68,.1);color:var(--danger);border:1px solid var(--danger);}
+
+  .chart-wrap{position:relative;height:240px;}
+  .chart-wrap.tall{height:300px;}
+
+  /* Glossary & Formula (live dari database) */
+  details.ref{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:0;margin-bottom:20px;overflow:hidden;}
+  details.ref>summary{list-style:none;cursor:pointer;padding:18px 20px;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  details.ref>summary::-webkit-details-marker{display:none;}
+  details.ref>summary .chev{margin-left:auto;color:var(--muted);font-size:13px;font-weight:400;}
+  .ref-body{padding:0 20px 20px;}
+  .ref-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .ref-item{border-top:1px solid var(--border);padding:10px 0;}
+  .ref-term{font-weight:600;color:#fff;font-size:13px;}
+  .ref-def{font-size:12px;color:var(--muted);line-height:1.5;margin-top:3px;}
+  .ref-cat{font-size:10px;color:var(--accent2);text-transform:uppercase;letter-spacing:.5px;}
+  code.formula{font-family:'Consolas','Courier New',monospace;font-size:12px;color:var(--accent3);background:var(--card2);padding:2px 6px;border-radius:5px;display:inline-block;margin-top:3px;}
+  @media (max-width:900px){ .grid-2,.ref-grid{grid-template-columns:1fr;} .sidebar{width:64px;} .logo-text,.logo-sub,.nav-item span.nav-txt,.sidebar-footer{display:none;} }
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">⛏️</div>
+    <div class="logo-text">CoalBlend AI</div>
+    <div class="logo-sub">Blending Intelligence</div>
+  </div>
+  <div class="nav-item active"><span class="nav-icon">📊</span><span class="nav-txt">Dashboard</span></div>
+  <div class="sidebar-footer" id="sidebar-footer">Loading…</div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title">Dashboard Overview</div>
+    <div class="badge-live"><span class="dot-live"></span> <span id="live-label">Data terkini</span></div>
+  </div>
+
+  <div class="page" id="page-dashboard">
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <div class="card">
+      <div class="section-title"><span>🏭</span>Coal Balance per Site — Quantity &amp; Quality</div>
+      <div class="section-note">Opening Stock + Coal Getting − Coal Shipment = Closing Stock. Kualitas dalam CV GAR (kcal/kg). Sumber: tabel <b>blending_source_summary</b> &amp; <b>closing_stock</b>.</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>Site</th>
+          <th class="num">Opening Stock</th><th class="num">CV</th>
+          <th class="num">Coal Getting</th><th class="num">CV</th>
+          <th class="num">Coal Shipment</th><th class="num">CV</th>
+          <th class="num">Closing Stock</th><th class="num">CV</th>
+          <th>Status Closing</th>
+        </tr></thead>
+        <tbody id="dash-tbody"></tbody>
+      </table></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title"><span>📊</span>Coal Balance Flow per Site (MT)</div>
+        <div class="chart-wrap tall"><canvas id="chart-balance"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="section-title"><span>🔥</span>Kualitas (CV GAR) per Site</div>
+        <div class="chart-wrap tall"><canvas id="chart-cv"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title"><span>📅</span>Proyeksi Ketersediaan Kargo — 3 Minggu ke Depan</div>
+      <div class="section-note">Proyeksi pergerakan available cargo per site (opening + coal getting kumulatif − shipment kumulatif, distribusi merata mingguan).</div>
+      <div class="chart-wrap tall"><canvas id="chart-projection"></canvas></div>
+      <div class="tbl-wrap" style="margin-top:14px;"><table id="tbl-projection"></table></div>
+    </div>
+
+    <details class="ref">
+      <summary><span>📖</span>Glossary &amp; Formula <span class="chev">(live dari database — rag_glossary &amp; rag_rules) ▾</span></summary>
+      <div class="ref-body">
+        <div class="section-title" style="font-size:14px;margin:8px 0 4px;"><span>🧮</span>Formula &amp; Rules (Model 1–9)</div>
+        <div id="ref-rules"></div>
+        <div class="section-title" style="font-size:14px;margin:20px 0 4px;"><span>📚</span>Glossary Istilah</div>
+        <div class="ref-grid" id="ref-glossary"></div>
+      </div>
+    </details>
+  </div>
+</main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DATA — di-inject oleh build_dashboard.py dari query database Postgres.
+// Template TIDAK berubah; hanya blok base64 di bawah yang di-refresh.
+// ═══════════════════════════════════════════════════════════════
+const DATA = JSON.parse(decodeURIComponent(escape(atob("ewogICJzaXRlcyI6IFsKICAgIHsibmFtZSI6IkxhdGkiLCJvcGVuaW5nIjoyMDAwMDAsImNvYWxfZ2V0dGluZyI6NjAwMDAwLCJhdmFpbGFibGUiOjgwMDAwMCwiY3YiOjUwMDAsInNoaXBtZW50Ijo2MjUwMDAsImpldHR5X2NhcCI6NjUwMDAwLCJjbG9zaW5nIjoxNzUwMDAsImNsb3NpbmdfbWluIjoxMDAwMDAsImNsb3NpbmdfbWF4IjoyNTAwMDB9LAogICAgeyJuYW1lIjoiQmludW5nYW4iLCJvcGVuaW5nIjoxOTAwMDAsImNvYWxfZ2V0dGluZyI6MTAwMDAwMCwiYXZhaWxhYmxlIjoxMTkwMDAwLCJjdiI6NDk1MCwic2hpcG1lbnQiOjEwNDAwMDAsImpldHR5X2NhcCI6MTEwMDAwMCwiY2xvc2luZyI6MTUwMDAwLCJjbG9zaW5nX21pbiI6NjAwMDAsImNsb3NpbmdfbWF4IjoxNTAwMDB9LAogICAgeyJuYW1lIjoiU2FtYmFyYXRhIiwib3BlbmluZyI6MjUwMDAwLCJjb2FsX2dldHRpbmciOjM1MDAwMCwiYXZhaWxhYmxlIjo2MDAwMDAsImN2Ijo1OTAwLCJzaGlwbWVudCI6NTAwMDAwLCJqZXR0eV9jYXAiOjQ1MDAwMCwiY2xvc2luZyI6MTAwMDAwLCJjbG9zaW5nX21pbiI6MTAwMDAwLCJjbG9zaW5nX21heCI6MjUwMDAwfSwKICAgIHsibmFtZSI6Ikd1cmltYmFuZyIsIm9wZW5pbmciOjUwMDAwLCJjb2FsX2dldHRpbmciOjY1MDAwMCwiYXZhaWxhYmxlIjo3MDAwMDAsImN2IjozODgwLCJzaGlwbWVudCI6NjUwMDAwLCJqZXR0eV9jYXAiOjY2MDAwMCwiY2xvc2luZyI6NTAwMDAsImNsb3NpbmdfbWluIjoyMDAwMCwiY2xvc2luZ19tYXgiOjUwMDAwfSwKICAgIHsibmFtZSI6IkJNTyAzIiwib3BlbmluZyI6MTAwMDAsImNvYWxfZ2V0dGluZyI6MjAwMDAwLCJhdmFpbGFibGUiOjIxMDAwMCwiY3YiOjMzNTAsInNoaXBtZW50IjoxODUwMDAsImpldHR5X2NhcCI6MTQwMDAwLCJjbG9zaW5nIjoyNTAwMCwiY2xvc2luZ19taW4iOjEwMDAwLCJjbG9zaW5nX21heCI6MjUwMDB9CiAgXSwKICAidG90YWxfcmV2ZW51ZSI6IDI0MjI1ODU5LAogICJkZWFsX3F0eSI6IDE1MDAwMDAsCiAgInNoaXBtZW50X2NhcCI6IDMwMDAwMDAsCiAgInJ1bl9sYWJlbCI6ICJQVCBCZXJhdSBDb2FsIOKAlCBNYXJrZXRpbmcgT3BzIiwKICAiZ2VuZXJhdGVkX2F0IjogIjIwMjYtMDgtMjYiLAogICJydWxlcyI6IFsKICAgIHsibW9kZWxfbm8iOjEsIm5hbWUiOiJNaW5pbWFsIHNoaXBtZW50IHBlciBicmFuZCIsImZvcm11bGEiOiJJODpQOCA+PSBJOTpQOSIsImNhdGVnb3J5IjoiY29uc3RyYWludCJ9LAogICAgeyJtb2RlbF9ubyI6MiwibmFtZSI6Ik1ha3NpbWFsIHNoaXBtZW50IHBlciBicmFuZCIsImZvcm11bGEiOiJJODpQOCA8PSBJMTA6UDEwIiwiY2F0ZWdvcnkiOiJjb25zdHJhaW50In0sCiAgICB7Im1vZGVsX25vIjozLCJuYW1lIjoiQmxlbmRpbmcgPD0gQXZhaWxhYmxlIFByb2R1Y3QiLCJmb3JtdWxhIjoiUjM6UjcgPD0gRTM6RTciLCJjYXRlZ29yeSI6ImNvbnN0cmFpbnQifSwKICAgIHsibW9kZWxfbm8iOjQsIm5hbWUiOiJCbGVuZGluZyA8PSBQbGFuIEthcGFzaXRhcyBTaGlwbWVudCIsImZvcm11bGEiOiJSOCA8PSBUOCIsImNhdGVnb3J5IjoiY29uc3RyYWludCJ9LAogICAgeyJtb2RlbF9ubyI6NSwibmFtZSI6IkJsZW5kaW5nIEFsbG93YW5jZSBtYXRyaXgiLCJmb3JtdWxhIjoiSTM6UDcgPD0gWDM6QUU3IiwiY2F0ZWdvcnkiOiJjb25zdHJhaW50In0sCiAgICB7Im1vZGVsX25vIjo2LCJuYW1lIjoiV2VpZ2h0ZWQgYXZlcmFnZSBDViA+PSBtaW4iLCJmb3JtdWxhIjoiSTIyOlAyMiA+PSBJMjc6UDI3IiwiY2F0ZWdvcnkiOiJjb25zdHJhaW50In0sCiAgICB7Im1vZGVsX25vIjo3LCJuYW1lIjoiV2VpZ2h0ZWQgYXZlcmFnZSBDViA8PSBtYXgiLCJmb3JtdWxhIjoiSTIyOlAyMiA8PSBJMjg6UDI4IiwiY2F0ZWdvcnkiOiJjb25zdHJhaW50In0sCiAgICB7Im1vZGVsX25vIjo4LCJuYW1lIjoiQ2xvc2luZyBzdG9jayA+PSBtaW4iLCJmb3JtdWxhIjoiQzM0OkMzOCA+PSBEMzQ6RDM4IiwiY2F0ZWdvcnkiOiJjb25zdHJhaW50In0sCiAgICB7Im1vZGVsX25vIjo5LCJuYW1lIjoiQ2xvc2luZyBzdG9jayA8PSBtYXgiLCJmb3JtdWxhIjoiQzM0OkMzOCA8PSBFMzQ6RTM4IiwiY2F0ZWdvcnkiOiJjb25zdHJhaW50In0sCiAgICB7Im1vZGVsX25vIjpudWxsLCJuYW1lIjoiTWFrc2ltYWxrYW4gVG90YWwgUmV2ZW51ZSIsImZvcm11bGEiOiJtYXggU3VtKCB4W3NpdGUsYnJhbmRdICogYmFzZV9wcmljZVticmFuZF0gKiAoQ1ZfYmxlbmRpbmcvQ1Zfa29udHJhaykgKSA7IG5pbGFpIGRpIHNlbCBJNDYiLCJjYXRlZ29yeSI6Im9iamVjdGl2ZSJ9CiAgXSwKICAiZ2xvc3NhcnkiOiBbCiAgICB7InRlcm0iOiJPcGVuaW5nIFN0b2NrIiwiZGVmaW5pdGlvbiI6IlZvbHVtZSBiYXR1YmFyYSBkaSBzdG9ja3BpbGUgdGlhcCBDUFAgcGVyIHRhbmdnYWwgMSBzZXRpYXAgYnVsYW4sIGRpdWt1ciBvbGVoIERlcHQuIFN1cnZleTsgdGVybWFzdWsgdm9sdW1lIGRpIGF0YXMgdG9uZ2thbmcgJiB2ZXNzZWwgeWFuZyBiZWx1bSBjb21wbGV0ZSAoZGlsYXBvcmthbiBTaGlwcGluZykuIE1lcnVwYWthbiBiYWdpYW4gZGFyaSBzdG9jayBiYXR1YmFyYSB5YW5nIGFrYW4gZGlrYXBhbGthbi4gQ29udG9oIHRvdGFsIDcwMC4wMDAgTVQuIiwiY2F0ZWdvcnkiOiJtYXN0ZXIgZGF0YSJ9LAogICAgeyJ0ZXJtIjoiQ29hbCBHZXR0aW5nIFBsYW4iLCJkZWZpbml0aW9uIjoiUmVuY2FuYSB2b2x1bWUgJiBrdWFsaXRhcyBjb2FsIGdldHRpbmcgYnVsYW5hbiB0aWFwIHNpdGUgZGFyaSBtaW5lcGxhbiAodGFuZ2dhbCAzLTUpLiBCZXJzYW1hIE9wZW5pbmcgU3RvY2sgbWVtYmVudHVrIHN0b2NrIGJhdHViYXJhIHlhbmcgYWthbiBkaWthcGFsa2FuLiBDb250b2ggdG90YWwgMi44MDAuMDAwIE1ULiIsImNhdGVnb3J5IjoibWFzdGVyIGRhdGEifSwKICAgIHsidGVybSI6IkF2YWlsYWJsZSBQcm9kdWN0IiwiZGVmaW5pdGlvbiI6Ik9wZW5pbmcgU3RvY2sgKyBDb2FsIEdldHRpbmcgUGxhbjsgdG90YWwgc3RvY2sgYmF0dWJhcmEgeWFuZyBha2FuIGRpa2FwYWxrYW4gZGFuIG1lbmphZGkgYmF0YXMgbWFrc2ltYWwgeWFuZyBiaXNhIGRpa2FwYWxrYW4uIENvbnRvaCAzLjUwMC4wMDAgTVQuIiwiY2F0ZWdvcnkiOiJtYXN0ZXIgZGF0YSJ9LAogICAgeyJ0ZXJtIjoiU2hpcG1lbnQgU2NoZWR1bGUgRGVhbCIsImRlZmluaXRpb24iOiJEYXRhIGJ1eWVyLCB2ZXNzZWwsIEVUQSwgYnJhbmQsIGRhbiB2b2x1bWUgeWFuZyBzdWRhaCBkZWFsIG1lbWJlbGkgYmF0dWJhcmEgKHNlcnRhIHlhbmcgYmVsdW0gZGVhbCkuIE1lcnVwYWthbiBkZW1hbmQgeWFuZyBzdWRhaCBkZWFsLCB5YWl0dSB2b2x1bWUgbWluaW1hbCB5YW5nIGhhcnVzIGRpa2FwYWxrYW47IGNvbnRvaCAxLjUwMC4wMDAgTVQuIiwiY2F0ZWdvcnkiOiJtYXN0ZXIgZGF0YSJ9LAogICAgeyJ0ZXJtIjoiUGxhbiBLYXBhc2l0YXMgU2hpcG1lbnQiLCJkZWZpbml0aW9uIjoiUmVuY2FuYSBtYWtzaW11bSB5YW5nIGJpc2EgZGlrYXBhbGthbiBkYXJpIG1hc2luZy1tYXNpbmcgamV0dHk7IGNvbnRvaCB0b3RhbCAzLjAwMC4wMDAgTVQuIFBlcnRpbWJhbmdhbjogaGFydXMgPCBBdmFpbGFibGUgUHJvZHVjdCwga2FwYXNpdGFzIHByb2Nlc3NpbmcgJiBvdXRsb2FkaW5nIChjcnVzaGVyLCBCTEMpLCBkYW4gbWluaW11bSBjbG9zaW5nIHN0b2NrLiIsImNhdGVnb3J5IjoibWFzdGVyIGRhdGEifSwKICAgIHsidGVybSI6IkNsb3NpbmcgU3RvY2siLCJkZWZpbml0aW9uIjoiU2lzYSBiYXR1YmFyYSB5YW5nIHRpZGFrIGRpa2FwYWxrYW4gLyB0aWRhayBkaWp1YWwgZGkgYnVsYW4gdGVyc2VidXQsIGRpcGFrYWkgc2ViYWdhaSBPcGVuaW5nIFN0b2NrIHBlcnNpYXBhbiBqdWFsYW4gYnVsYW4gZGVwYW4uIE1lbmphZ2EgcGVuZ2FwYWxhbiB0ZXRhcCBjb250aW51ZSBzZWhpbmdnYSByaXNpa28gZGVtdXJyYWdlIGJpc2EgZGltaW5pbWFsaXNpci4gQ29udG9oIHRvdGFsIDUwMC4wMDAgTVQuIiwiY2F0ZWdvcnkiOiJtYXN0ZXIgZGF0YSJ9LAogICAgeyJ0ZXJtIjoiQmxlbmRpbmcgQWxsb3dhbmNlIiwiZGVmaW5pdGlvbiI6Ik1hdHJpa3Mgc2l0ZSB4IGJyYW5kIHlhbmcgbWVuZW50dWthbiBzaXRlIG1hbmEgYm9sZWggZGktYmxlbmQga2UgYnJhbmQgdGVydGVudHUsIHNla2FsaWd1cyBiYXRhcyB0b25hc2UgcGVyIHNvdXJjZSBwZXIgcHJvZHVrLiIsImNhdGVnb3J5IjoiYXR1cmFuIn0sCiAgICB7InRlcm0iOiJCYXNlIFByaWNlIiwiZGVmaW5pdGlvbiI6IkhhcmdhIGRhc2FyIHBlciBicmFuZC4gSGFyZ2EgYWt0dWFsID0gYmFzZSBwcmljZSB4IChDViBibGVuZGluZyAvIENWIGtvbnRyYWspLCBtZW5naWt1dGkgcHJpbnNpcCBoaWdoZXIgQ1YgaGlnaGVyIHByaWNlLiIsImNhdGVnb3J5IjoiaGFyZ2EifSwKICAgIHsidGVybSI6Ikt1YWxpdGFzIEtvbnRyYWsgKENWIEtvbnRyYWspIiwiZGVmaW5pdGlvbiI6Ik5pbGFpIENWL0dBUiBhY3VhbiBrb250cmFrIHBlciBicmFuZCAoa2NhbC9rZykgeWFuZyBkaXBha2FpIHNlYmFnYWkgcGVtYmFnaSBkYWxhbSBwZXJoaXR1bmdhbiBoYXJnYSBha3R1YWwuIiwiY2F0ZWdvcnkiOiJoYXJnYSJ9LAogICAgeyJ0ZXJtIjoiQ1YgLyBHQVIiLCJkZWZpbml0aW9uIjoiQ2Fsb3JpZmljIFZhbHVlIChHcm9zcyBBcyBSZWNlaXZlZCksIHVrdXJhbiBrdWFsaXRhcyBrYWxvcmkgYmF0dWJhcmEgZGFsYW0ga2NhbC9rZy4iLCJjYXRlZ29yeSI6ImlzdGlsYWgifSwKICAgIHsidGVybSI6IkRlbXVycmFnZSIsImRlZmluaXRpb24iOiJEZW5kYSBrZXRlcmxhbWJhdGFuIHBlbmdhcGFsYW47IGRpbWluaW1hbGthbiBkZW5nYW4gbWVuamFnYSBrZXRlcnNlZGlhYW4gY2xvc2luZyBzdG9jayBhZ2FyIHBlbmdhcGFsYW4gdGlkYWsgdGVycHV0dXMuIiwiY2F0ZWdvcnkiOiJpc3RpbGFoIn0sCiAgICB7InRlcm0iOiJXZWlnaHRlZCBBdmVyYWdlIENWIiwiZGVmaW5pdGlvbiI6IlJhdGEtcmF0YSB0ZXJ0aW1iYW5nIENWIGhhc2lsIGJsZW5kaW5nIHBlciBicmFuZDsgaGFydXMgYmVyYWRhIGRpIGFudGFyYSBDViBtaW5pbXVtIGRhbiBtYWtzaW11bSBicmFuZC4iLCJjYXRlZ29yeSI6ImF0dXJhbiJ9LAogICAgeyJ0ZXJtIjoiQnJhbmQiLCJkZWZpbml0aW9uIjoiUHJvZHVrIGp1YWwgYmF0dWJhcmE6IEVib25pLCBNYWhvbmkgQiwgQWdhdGhpcywgU3VuZ2thaSwgU3VuZ2thaSBCLCBDViA0NjAwLCBDViA0MjAwLCBDViAzODAwLiIsImNhdGVnb3J5IjoiZGltZW5zaSJ9LAogICAgeyJ0ZXJtIjoiU2l0ZSAvIENQUCIsImRlZmluaXRpb24iOiJTdW1iZXIgYmF0dWJhcmE6IExhdGksIEJpbnVuZ2FuLCBTYW1iYXJhdGEsIEd1cmltYmFuZywgQk1PIDMuIENQUCA9IENvYWwgUHJvY2Vzc2luZyBQbGFudC4iLCJjYXRlZ29yeSI6ImRpbWVuc2kifSwKICAgIHsidGVybSI6IkpldHR5IiwiZGVmaW5pdGlvbiI6IlRpdGlrIHBlbmdhcGFsYW4gYmF0dWJhcmE7IHRpYXAgamV0dHkgbWVtaWxpa2kgcGxhbiBrYXBhc2l0YXMgc2hpcG1lbnQgc2VuZGlyaS4iLCJjYXRlZ29yeSI6ImRpbWVuc2kifQogIF0KfQo="))));
+
+const $ = id => document.getElementById(id);
+const fmtN = n => Number(n).toLocaleString('en-US', {maximumFractionDigits: 0});
+const fmt$ = n => '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const PALETTE = ['#7c3aed','#06b6d4','#10b981','#f59e0b','#ef4444','#a78bfa','#22d3ee','#f472b6'];
+let charts = {};
+
+// ── Turunan summary dihitung dari baris per-site (deterministik) ──
+function buildSummary(sites) {
+  const sum = (k) => sites.reduce((a, s) => a + (+s[k] || 0), 0);
+  const wcv = (k) => { const t = sum(k); return t ? sites.reduce((a, s) => a + (+s[k]||0) * (+s.cv||0), 0) / t : 0; };
+  const opening_qty = sum('opening'), cg_qty = sum('coal_getting');
+  const shipment_qty = sum('shipment'), closing_qty = sum('closing');
+  return {
+    opening_qty, opening_cv: wcv('opening'),
+    coal_getting_qty: cg_qty, coal_getting_cv: wcv('coal_getting'),
+    available_qty: opening_qty + cg_qty,
+    shipment_qty, shipment_cv: wcv('shipment'),
+    closing_qty, closing_cv: wcv('closing'),
+    shipment_cap: DATA.shipment_cap != null ? DATA.shipment_cap : sum('jetty_cap'),
+    deal_qty: DATA.deal_qty || 0,
+    optimize_qty: Math.max(shipment_qty - (DATA.deal_qty || 0), 0),
+    total_revenue: DATA.total_revenue || 0,
+  };
+}
+
+function render() {
+  const sites = DATA.sites || [];
+  const s = buildSummary(sites);
+  $('live-label').textContent = 'Data ' + (DATA.generated_at || '');
+  $('sidebar-footer').innerHTML = (DATA.run_label || 'CoalBlend AI') + '<br>' + (DATA.generated_at || '');
+
+  // KPI
+  $('kpi-grid').innerHTML = `
+    <div class="kpi purple"><div class="kpi-label">Opening Stock</div>
+      <div class="kpi-value">${fmtN(s.opening_qty)} MT</div>
+      <div class="kpi-sub">CV rata-rata ${fmtN(s.opening_cv)} kcal/kg</div><div class="kpi-icon">📦</div></div>
+    <div class="kpi cyan"><div class="kpi-label">Coal Getting</div>
+      <div class="kpi-value">${fmtN(s.coal_getting_qty)} MT</div>
+      <div class="kpi-sub">CV rata-rata ${fmtN(s.coal_getting_cv)} kcal/kg</div><div class="kpi-icon">⛏️</div></div>
+    <div class="kpi green"><div class="kpi-label">Coal Shipment</div>
+      <div class="kpi-value">${fmtN(s.shipment_qty)} MT</div>
+      <div class="kpi-sub">CV rata-rata ${fmtN(s.shipment_cv)} kcal/kg · cap ${fmtN(s.shipment_cap)} MT</div><div class="kpi-icon">🚢</div></div>
+    <div class="kpi amber"><div class="kpi-label">Closing Stock</div>
+      <div class="kpi-value">${fmtN(s.closing_qty)} MT</div>
+      <div class="kpi-sub">CV rata-rata ${fmtN(s.closing_cv)} kcal/kg</div><div class="kpi-icon">🏗️</div></div>
+    <div class="kpi red"><div class="kpi-label">Total Revenue</div>
+      <div class="kpi-value">${fmt$(s.total_revenue)}</div>
+      <div class="kpi-sub">Deal ${fmtN(s.deal_qty)} + Optimize ${fmtN(s.optimize_qty)} MT</div><div class="kpi-icon">💰</div></div>`;
+
+  // Tabel balance
+  $('dash-tbody').innerHTML = sites.map(st => {
+    const ok = (+st.closing >= +st.closing_min - 0.01) && (+st.closing <= +st.closing_max + 0.01);
+    return `
+    <tr>
+      <td style="font-weight:600;color:#fff">${st.name}</td>
+      <td class="num">${fmtN(st.opening)}</td><td class="num cv-tag">${fmtN(st.cv)}</td>
+      <td class="num">${fmtN(st.coal_getting)}</td><td class="num cv-tag">${fmtN(st.cv)}</td>
+      <td class="num">${fmtN(st.shipment)}</td><td class="num cv-tag">${fmtN(st.cv)}</td>
+      <td class="num">${fmtN(st.closing)}</td><td class="num cv-tag">${fmtN(st.cv)}</td>
+      <td><span class="badge ${ok ? 'ok' : 'bad'}">${ok ? '✓ dalam band' : '✗ di luar band'} ${fmtN(st.closing_min)}–${fmtN(st.closing_max)}</span></td>
+    </tr>`;
+  }).join('') + `
+    <tr class="total-row">
+      <td>Total</td>
+      <td class="num">${fmtN(s.opening_qty)}</td><td class="num cv-tag">${fmtN(s.opening_cv)}</td>
+      <td class="num">${fmtN(s.coal_getting_qty)}</td><td class="num cv-tag">${fmtN(s.coal_getting_cv)}</td>
+      <td class="num">${fmtN(s.shipment_qty)}</td><td class="num cv-tag">${fmtN(s.shipment_cv)}</td>
+      <td class="num">${fmtN(s.closing_qty)}</td><td class="num cv-tag">${fmtN(s.closing_cv)}</td>
+      <td></td>
+    </tr>`;
+
+  const labels = sites.map(x => x.name);
+  makeChart('chart-balance', {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Opening Stock', data: sites.map(x => +x.opening),      backgroundColor: '#7c3aed' },
+      { label: 'Coal Getting',  data: sites.map(x => +x.coal_getting), backgroundColor: '#06b6d4' },
+      { label: 'Coal Shipment', data: sites.map(x => +x.shipment),     backgroundColor: '#10b981' },
+      { label: 'Closing Stock', data: sites.map(x => +x.closing),      backgroundColor: '#f59e0b' },
+    ]},
+    options: chartOpts(),
+  });
+  makeChart('chart-cv', {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'CV GAR (kcal/kg)', data: sites.map(x => +x.cv),
+      backgroundColor: sites.map((_, i) => PALETTE[i % PALETTE.length]) }]},
+    options: chartOpts(false),
+  });
+
+  renderProjection(sites);
+  renderReference();
+}
+
+function renderProjection(sites) {
+  const WEEKS_PER_MONTH = 4.3;
+  const proj = [1, 2, 3].map(w => {
+    const frac = w / WEEKS_PER_MONTH;
+    const rows = sites.map(st => ({
+      name: st.name,
+      available: Math.round(+st.opening + (+st.coal_getting) * frac - (+st.shipment) * frac),
+    }));
+    return { week: w, sites: rows, total_available: Math.round(rows.reduce((a, r) => a + r.available, 0)) };
+  });
+  makeChart('chart-projection', {
+    type: 'bar',
+    data: {
+      labels: proj.map(p => 'Minggu +' + p.week),
+      datasets: sites.map((st, i) => ({
+        label: st.name,
+        data: proj.map(p => p.sites[i].available),
+        backgroundColor: PALETTE[i % PALETTE.length],
+      })),
+    },
+    options: chartOpts(true, true),
+  });
+  let html = '<thead><tr><th>Site</th>' + proj.map(p => `<th class="num">Minggu +${p.week} (MT)</th>`).join('') + '</tr></thead><tbody>';
+  sites.forEach((st, i) => {
+    html += `<tr><td style="font-weight:600;color:#fff">${st.name}</td>` + proj.map(p => `<td class="num">${fmtN(p.sites[i].available)}</td>`).join('') + '</tr>';
+  });
+  html += `<tr class="total-row"><td>Total</td>` + proj.map(p => `<td class="num">${fmtN(p.total_available)}</td>`).join('') + '</tr></tbody>';
+  $('tbl-projection').innerHTML = html;
+}
+
+function renderReference() {
+  $('ref-rules').innerHTML = (DATA.rules || []).map(r => `
+    <div class="ref-item">
+      <div class="ref-term">${r.model_no != null ? 'Model ' + r.model_no + ' — ' : ''}${r.name} <span class="ref-cat">${r.category || ''}</span></div>
+      <code class="formula">${(r.formula || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</code>
+    </div>`).join('');
+  $('ref-glossary').innerHTML = (DATA.glossary || []).map(g => `
+    <div class="ref-item">
+      <div class="ref-term">${g.term} <span class="ref-cat">${g.category || ''}</span></div>
+      <div class="ref-def">${g.definition || ''}</div>
+    </div>`).join('');
+}
+
+function chartOpts(showLegend = true, stacked = false) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: showLegend, labels: { color: '#94a3b8', boxWidth: 12, font: { size: 11 } } } },
+    scales: {
+      x: { stacked, ticks: { color: '#94a3b8', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,.04)' } },
+      y: { stacked, ticks: { color: '#94a3b8', font: { size: 11 }, callback: v => Number(v).toLocaleString() }, grid: { color: 'rgba(255,255,255,.06)' } },
+    },
+  };
+}
+function makeChart(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart($(id).getContext('2d'), cfg); }
+
+render();
+</script>
+</body>
+</html>

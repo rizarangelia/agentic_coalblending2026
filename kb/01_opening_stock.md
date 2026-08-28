@@ -24,7 +24,7 @@ keywords: [opening stock, stok awal, CPP, stockpile, survey, tongkang, vessel]
 | CPP | Volume (MT) | CV (GAR) |
 |---|---|---|
 | CPP Lati | 200.000 | 5.000 |
-| CPP Binsua | 190.000 | 4.950 |
+| CPP Binungan | 190.000 | 4.950 |
 | CPP Sambarata | 250.000 | 5.900 |
 | CPP Gurimbang | 50.000 | 3.880 |
 | CPP BMO 3 | 10.000 | 3.350 |

@@ -2,28 +2,37 @@
 Orkestrasi 4 agent: Ingestion -> Constraint -> Optimizer -> Synthesizer.
 Login MVP: kredensial demo di config/users.json (sha256). Ganti dengan SSO korporat saat produksi.
 """
-import json, hashlib, pathlib
+import os, json, hashlib, pathlib
 import hashlib as _h
 from flask import Flask, request, session, redirect, render_template_string
 from agents import ingestion, constraint, optimizer, synthesizer, orchestrator
+from agents import db  # persistensi Postgres (defaultdb) — Metabase baca DB yang sama
 from agents.dashboard import DASH_HTML
 
 ROOT = pathlib.Path(__file__).parent
+# DATA_DIR = lokasi tulis runtime. Default = repo (dev lokal). Di serverless read-only
+# (Vercel) set DATA_DIR=/tmp agar output/ & calibration bisa ditulis. Best-effort mkdir.
+DATA_DIR = pathlib.Path(os.environ.get('DATA_DIR', str(ROOT)))
+for _d in ('output', 'config'):
+    try: (DATA_DIR / _d).mkdir(parents=True, exist_ok=True)
+    except Exception: pass
 MANIFEST = json.loads((ROOT / 'config/constraint_manifest.json').read_text())
 USERS = json.loads((ROOT / 'config/users.json').read_text())
 
 app = Flask(__name__)
-app.secret_key = 'coalblend-mvp1-demo'  # produksi: env var
+# produksi (Railway): set SECRET_KEY di env; fallback demo untuk dev lokal
+app.secret_key = os.environ.get('SECRET_KEY', 'coalblend-mvp1-demo')
+db.init()  # siapkan skema Postgres (no-op aman bila DATABASE_URL belum di-set)
 
 PAGE = """<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{background:#0b1012;color:#e8efee;font:14px 'IBM Plex Sans',sans-serif;display:flex;justify-content:center;padding-top:60px}
-.card{background:#131c1f;border:1px solid #23312f;border-radius:14px;padding:28px;width:430px}
-h1{font-size:18px;margin:0 0 4px}.sub{color:#8aa09c;font-size:11px;font-family:monospace;margin-bottom:18px}
-input,button{width:100%;padding:9px 11px;margin:5px 0;border-radius:8px;border:1px solid #23312f;background:#0e1517;color:#e8efee;font-size:13px}
-button{background:#1f9e45;border:none;font-weight:700;cursor:pointer;margin-top:12px}
-label{font-size:11px;color:#8aa09c;font-family:monospace;text-transform:uppercase;letter-spacing:.05em}
-.err{color:#ef5350;font-size:12px}.ok{color:#34c759;font-size:12px}
-a{color:#4aa3df}</style></head><body><div class="card">{{ body|safe }}</div></body></html>"""
+<style>body{background:#1a1a19;color:#f0efec;font:14px 'IBM Plex Sans',sans-serif;display:flex;justify-content:center;padding-top:60px}
+.card{background:#20201f;border:1px solid #37342f;border-radius:14px;padding:28px;width:430px}
+h1{font-size:18px;margin:0 0 4px}.sub{color:#c3c2b7;font-size:11px;font-family:monospace;margin-bottom:18px}
+input,button{width:100%;padding:9px 11px;margin:5px 0;border-radius:8px;border:1px solid #37342f;background:#262523;color:#f0efec;font-size:13px}
+button{background:#c6613f;border:none;font-weight:700;cursor:pointer;margin-top:12px;color:#fff}
+label{font-size:11px;color:#c3c2b7;font-family:monospace;text-transform:uppercase;letter-spacing:.05em}
+.err{color:#ff6159;font-size:12px}.ok{color:#7d9b76;font-size:12px}
+a{color:#6b9bd1}</style></head><body><div class="card">{{ body|safe }}</div></body></html>"""
 
 def logged_in(): return session.get('user') is not None
 
@@ -61,11 +70,11 @@ def input_data():
     return render_template_string(PAGE, body=body)
 
 def _rounds():
-    p = ROOT / 'output/rounds.json'
+    p = DATA_DIR / 'output/rounds.json'
     return json.loads(p.read_text()) if p.exists() else []
 
 def _rounds_save(r):
-    (ROOT / 'output/rounds.json').write_text(json.dumps(r, indent=1, ensure_ascii=False))
+    (DATA_DIR / 'output/rounds.json').write_text(json.dumps(r, indent=1, ensure_ascii=False))
 
 def _history_html():
     rows = ''
@@ -102,14 +111,14 @@ def _synth_files_from_last(demand_file):
             'demand_deal': demand_file}
 
 def _load_calib():
-    p = ROOT / 'config/calibration.json'
+    p = DATA_DIR / 'config/calibration.json'
     if not p.exists(): return {'approval': {}, 'reject': {}, 'total_keputusan': 0, 'skenario_favorit': '-', 'catatan': []}
     return json.loads(p.read_text())
 
 def _save_calib(c):
     if c['approval']:
         c['skenario_favorit'] = max(c['approval'], key=c['approval'].get)
-    (ROOT / 'config/calibration.json').write_text(json.dumps(c, indent=1, ensure_ascii=False))
+    (DATA_DIR / 'config/calibration.json').write_text(json.dumps(c, indent=1, ensure_ascii=False))
 
 def run_pipeline(files, sumber_demand=None):
     # fallback fixtures untuk demo/validasi
@@ -121,6 +130,10 @@ def run_pipeline(files, sumber_demand=None):
     st = orchestrator.run(files, MANIFEST, session.get('user', 'tester'),
                           ingestion, constraint, optimizer)          # state graph + lineage + trace
     session['run_id'] = st['run_id']
+    _sumber = sumber_demand or ('fixtures simulasi' if use_fixtures else f'{len(files)} file input')
+    # PERSIST: tiap upload masuk DB (defaultdb) — Metabase baca tabel yang sama
+    db.record_upload(st['run_id'], session.get('user', 'tester'), _sumber,
+                     st.get('lineage'), st.get('data'))
     if st['node_terakhir'] == 'ALERT':
         return synthesizer.render(None, st.get('C'), st['alerts'],
                                   meta=f"run {st['run_id']} · pipeline berhenti (lihat output/trace.jsonl)")
@@ -129,13 +142,13 @@ def run_pipeline(files, sumber_demand=None):
                           'data': st.get('data'), 'alerts': st['alerts']}
     a1 = a2 = []  # alerts pre-solve sudah di st['alerts']
     # persist state utk /dashboard, /review (revisit) & /api
-    (ROOT / 'output/last_state.json').write_text(json.dumps({
+    (DATA_DIR / 'output/last_state.json').write_text(json.dumps({
         'user': session.get('user', 'tester'), 'run_id': st['run_id'],
         'sumber': 'fixtures simulasi' if use_fixtures else f'{len(files)} file input',
         'data': st.get('data'), 'alerts': st['alerts'],
     }, ensure_ascii=False))
     # simpan run untuk endpoint keputusan (tanpa objek sol penuh: cukup ringkasan auditabel)
-    (ROOT / 'output/last_run.json').write_text(json.dumps(
+    (DATA_DIR / 'output/last_run.json').write_text(json.dumps(
         {sc['id']: {'nama': sc['nama'], 'revenue': sc['revenue'],
                     'brand_total': sc['sol']['brand_total'] if sc['sol'] else None,
                     'closing': sc['sol']['closing'] if sc['sol'] else None}
@@ -149,10 +162,14 @@ def run_pipeline(files, sumber_demand=None):
                    'opsi': {sc['id']: {'nama': sc['nama'], 'revenue': sc['revenue']} for sc in scenarios},
                    'chosen': None})
     _rounds_save(rounds)
+    # PERSIST: tiap run AI blending -> history ronde + opsi ke DB; refresh tabel Metabase input
+    db.record_run(st['run_id'], len(rounds), session.get('user', 'tester'), _sumber,
+                  st['node_terakhir'], scenarios, len(st['alerts']))
+    db.refresh_business_process(st.get('data'), C)
     html = synthesizer.render_review(scenarios, C, st['alerts'], calib=_load_calib(),   # Agent 4 (review HITL)
                                      meta=f"RONDE {len(_rounds())} · run {st['run_id']} · validator: {session.get('user','tester')} · lineage: {len(st['lineage']['files'])} file (sha256 tercatat)")
     html = html.replace('</body>', f"<div style='max-width:1180px'>{_history_html()}</div></body>")
-    (ROOT / 'output/dashboard.html').write_text(html)
+    (DATA_DIR / 'output/dashboard.html').write_text(html)
     return html
 
 @app.route('/decide', methods=['POST'])
@@ -161,10 +178,10 @@ def decide():
     import datetime
     opsi, aksi = request.form.get('opsi'), request.form.get('aksi')
     catatan = request.form.get('catatan', '').strip()
-    run = json.loads((ROOT / 'output/last_run.json').read_text()) if (ROOT / 'output/last_run.json').exists() else {}
+    run = json.loads((DATA_DIR / 'output/last_run.json').read_text()) if (DATA_DIR / 'output/last_run.json').exists() else {}
     rec = {'waktu': datetime.datetime.now().isoformat(timespec='seconds'), 'validator': session['user'],
            'opsi': opsi, 'aksi': aksi, 'catatan': catatan, 'revenue': (run.get(opsi) or {}).get('revenue')}
-    with open(ROOT / 'output/decisions.jsonl', 'a') as f:
+    with open(DATA_DIR / 'output/decisions.jsonl', 'a') as f:
         f.write(json.dumps(rec, ensure_ascii=False) + '\n')
     c = _load_calib()
     key = 'approval' if aksi == 'approve' else 'reject'
@@ -173,6 +190,9 @@ def decide():
     if catatan: c['catatan'].append({'opsi': opsi, 'aksi': aksi, 'catatan': catatan})
     _save_calib(c)
     orchestrator.decide(session.get('run_id', '?'), session['user'], opsi, aksi, catatan, rec['revenue'])
+    # PERSIST: keputusan validator (HITL) -> DB
+    db.record_decision(session.get('run_id', '?'), len(_rounds()), session['user'],
+                       opsi, aksi, catatan, rec['revenue'])
     rounds = _rounds()
     if rounds and rounds[-1]['chosen'] is None:
         rounds[-1]['chosen'] = {'opsi': opsi, 'aksi': aksi, 'catatan': catatan,
@@ -183,9 +203,13 @@ def decide():
     if aksi == 'approve' and L:
         sc = next((s for s in L['scenarios'] if s['id'] == opsi and s['sol']), None)
         if sc:
-            rp = ROOT / f"output/report_final_{session.get('run_id','x')}_{opsi}.html"
+            rp = DATA_DIR / f"output/report_final_{session.get('run_id','x')}_{opsi}.html"
             rp.write_text(synthesizer.render_report(sc, L['C'], session.get('run_id','?'), session['user'], catatan))
             report_link = f'<p class="ok">Report Final &amp; Rekomendasi Eksekusi diterbitkan: {rp.name}</p>'
+            # PERSIST: alokasi opsi disetujui -> history DB + refresh tabel alokasi Metabase
+            db.record_blending_history(session.get('run_id', '?'), len(_rounds()), opsi,
+                                       session['user'], sc['sol'], L['C'])
+            db.refresh_blending_allocation(sc['sol'], L['C'])
     verdict = ('DISETUJUI — blending plan siap dipublikasikan ke Marketing.' if aksi == 'approve'
                else 'DITOLAK — catatan Anda tercatat sebagai sinyal kalibrasi.')
     demand_form = ''
@@ -240,7 +264,7 @@ def override():
                                      meta=f"run {session.get('run_id','?')} · MANUAL OVERRIDE aktif · re-run < 1 detik")
 
 def _last_state():
-    p = ROOT / 'output/last_state.json'
+    p = DATA_DIR / 'output/last_state.json'
     if p.exists():
         return json.loads(p.read_text())
     # fallback fixtures
@@ -264,7 +288,7 @@ def _solve_from(data, deal_override=None):
     return sol, C, a2 + a3
 
 def _alert_objs(alerts):
-    ackp = ROOT / 'output/alerts_ack.json'
+    ackp = DATA_DIR / 'output/alerts_ack.json'
     acked = set(json.loads(ackp.read_text())) if ackp.exists() else set()
     out = []
     for sev, cat, msg in alerts:
@@ -286,7 +310,7 @@ def input_demand():
 def api_ack():
     if not logged_in(): return {'error': 'unauthorized'}, 401
     aid = (request.get_json(silent=True) or {}).get('id')
-    ackp = ROOT / 'output/alerts_ack.json'
+    ackp = DATA_DIR / 'output/alerts_ack.json'
     acked = set(json.loads(ackp.read_text())) if ackp.exists() else set()
     if aid: acked.add(aid)
     ackp.write_text(json.dumps(sorted(acked)))
@@ -317,6 +341,28 @@ def api_state():
             'deal_default': C['deal'], 'total_capacity': C['total_capacity'],
             'solution': sol, 'alerts': _alert_objs([tuple(a) for a in (st.get('alerts') or [])] + alerts)}
 
+@app.route('/api/monitoring')
+def api_monitoring():
+    if not logged_in(): return {'error': 'unauthorized'}, 401
+    from agents import monitoring
+    st = _last_state()
+    sol, C, _ = _solve_from(st['data'])
+    sites_state = []
+    for s in C['sites']:
+        ship = (sol or {}).get('site_ship', {}).get(s, 0) if sol else 0
+        jetty = C['jetty_capacity'][s]
+        sites_state.append({
+            'site': s, 'available': C['available'][s], 'jetty': jetty,
+            'ship': ship, 'util': (ship / jetty) if jetty else None,
+            'closing': (sol or {}).get('closing', {}).get(s) if sol else None,
+            'cv': C['cv_site'][s],
+        })
+    alloc = {s: {b: (sol or {}).get('x', {}).get(s, {}).get(b, 0) for b in C['brands']} for s in C['sites']} if sol else {}
+    brand_total = (sol or {}).get('brand_total', {}) if sol else {}
+    snap = monitoring.snapshot(sites_state, alloc, brand_total)
+    snap['meta'] = {'user': st['user'], 'run_id': st['run_id'], 'sumber': st['sumber']}
+    return snap
+
 @app.route('/api/optimize', methods=['POST'])
 def api_optimize():
     if not logged_in(): return {'error': 'unauthorized'}, 401
@@ -331,7 +377,7 @@ def api_optimize():
 @app.route('/review')
 def review_page():
     if not logged_in(): return redirect('/')
-    p = ROOT / 'output/dashboard.html'
+    p = DATA_DIR / 'output/dashboard.html'
     if p.exists(): return p.read_text()
     return run_pipeline({})
 
@@ -340,4 +386,5 @@ def logout():
     session.clear(); return redirect('/')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=False)
+    # dev lokal: `python app.py`. Produksi Railway pakai gunicorn (lihat Procfile).
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)), debug=False)

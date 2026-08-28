@@ -14,4 +14,4 @@ keywords: [available product, produk tersedia, maksimal dikapalkan, formula]
 
 **Makna:** Available Product adalah MAKSIMAL yang bisa dikapalkan pada bulan tersebut. Tidak ada blending yang boleh melebihi Available Product per site (Konstrain Model 3).
 
-**Contoh SIMULASI:** total 700.000 + 2.800.000 = 3.500.000 MT (Lati 800rb, Binsua 1.190rb, Sambarata 600rb, Gurimbang 700rb, BMO 3 210rb).
+**Contoh SIMULASI:** total 700.000 + 2.800.000 = 3.500.000 MT (Lati 800rb, Binungan 1.190rb, Sambarata 600rb, Gurimbang 700rb, BMO 3 210rb).
