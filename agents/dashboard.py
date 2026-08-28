@@ -142,7 +142,7 @@ a.btn{background:var(--g);color:#ffffff;font:700 12px 'IBM Plex Sans';padding:8p
 <div class="kpi"><div class="l">Tongkang Aktif</div><div class="v" id="m_barges">—</div><div class="d">tug &amp; barge di korridor</div></div>
 <div class="kpi b"><div class="l">Kapal di Anchorage</div><div class="v" id="m_ships">—</div><div class="d">kapal buyer sedang diisi</div></div>
 <div class="kpi a"><div class="l">Tonase En-route</div><div class="v" id="m_enroute">—</div><div class="d">kargo tongkang berlayar (MT)</div></div>
-<div class="kpi"><div class="l">Loading / Discharging</div><div class="v" id="m_ld">—</div><div class="d">muat di situs / bongkar ke kapal</div></div></div>
+<div class="kpi"><div class="l">Loading / Discharging</div><div class="v" id="m_ld">—</div><div class="d">muat di Site / bongkar ke kapal</div></div></div>
 <div class="mapwrap">
 <svg id="mon_svg" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet">
 <defs><radialGradient id="sea" cx="86%" cy="53%" r="46%">
@@ -383,7 +383,7 @@ async function monPoll(){ let d; try{ d=await (await fetch('/api/monitoring')).j
 const $m=id=>document.getElementById(id);
 function monRender(d){
  $m('mon_clock').textContent=d.ts.slice(11);
- $m('mon_src').textContent=`${d.sites.length} situs · ${d.ships.length} kapal aktif · ${d.barges.length} tongkang · ${d.queued.length} antre · run ${d.meta?d.meta.run_id:'-'}`;
+ $m('mon_src').textContent=`${d.sites.length} Site · ${d.ships.length} kapal aktif · ${d.barges.length} tongkang · ${d.queued.length} antre · run ${d.meta?d.meta.run_id:'-'}`;
  $m('mon_note').textContent=d.source;
  const k=d.kpi;
  $m('m_barges').textContent=k.barges; $m('m_ships').textContent=k.ships;
@@ -400,13 +400,13 @@ function monRender(d){
   $m('mon_sites').innerHTML=d.sites.map(s=>{
    const col=SITE_COL[s.site]||'#c6613f', u=Math.max(0,Math.min(1.2,s.util||0)), C=2*Math.PI*18, dash=`${(Math.min(u,1)*C).toFixed(1)} ${C.toFixed(1)}`;
    return `<g transform="translate(${s.x},${s.y})">
-    <title>Situs ${s.site} · utilisasi jetty ${(u*100).toFixed(0)}%${u>1?' (OVER)':''} · CV ${s.cv?F1(s.cv):'-'} · shipment ${s.ship?F(s.ship):'-'} MT</title>
+    <title>Site ${s.site} · utilisasi jetty ${(u*100).toFixed(0)}%${u>1?' (OVER)':''} · CV ${s.cv?F1(s.cv):'-'} · shipment ${s.ship?F(s.ship):'-'} MT</title>
     <circle r="14" fill="#262523" stroke="${col}" stroke-width="1.6"/>
     <circle r="18" fill="none" stroke="${u>1?'#ff6159':col}" stroke-width="3.2" stroke-dasharray="${dash}" transform="rotate(-90)"/>
     <text class="slabel" x="0" y="-27" text-anchor="middle">${s.site}</text>
     <text class="smeta" x="0" y="31" text-anchor="middle">${(u*100).toFixed(0)}% jetty · ${s.cv?F1(s.cv):''}</text></g>`;}).join('');
   $m('mon_leg').innerHTML=Object.keys(SITE_COL).map(s=>`<span><i style="background:${SITE_COL[s]}"></i>${s}</span>`).join('')
-   +`<span style="margin-left:auto">warna tongkang = situs asal · racikan blend per kapal · update 3 dtk</span>`;
+   +`<span style="margin-left:auto">warna tongkang = Site asal · racikan blend per kapal · update 3 dtk</span>`;
  }
  // ---- kapal buyer di anchorage (rebuild tiap poll: fill berubah) ----
  $m('mon_ships').innerHTML=d.ships.map(sh=>`<g transform="translate(${sh.x},${sh.y})">
@@ -431,7 +431,7 @@ function monRender(d){
  });
  Object.keys(monBargeEls).forEach(id=>{ if(!seen[id]){ monBargeEls[id].remove(); delete monBargeEls[id]; }});
  // ---- tabel kapal buyer (aktif + antre) ----
- let hs='<tr><th>Kapal</th><th style="text-align:left">Buyer</th><th>Brand</th><th>Tonase (MT)</th><th>Tongkang</th><th>Progress</th></tr>';
+ let hs='<tr><th>Kapal (Vessel)</th><th style="text-align:left">Buyer</th><th>Brand</th><th>Kapasitas (MT)</th><th>Tongkang</th><th>Progress</th></tr>';
  d.ships.forEach(sh=>{hs+=`<tr><td>${sh.name}</td><td style="text-align:left">${sh.buyer}</td><td>${sh.brand}</td><td>${F(sh.total_mt)}</td><td>${sh.arrived_barges}/${sh.need_barges}</td><td class="${sh.fill>0.6?'pos':'amb'}">${(sh.fill*100).toFixed(0)}%</td></tr>`});
  d.queued.forEach(q=>{hs+=`<tr><td class=mut>${q.name}</td><td style="text-align:left" class=mut>${q.buyer}</td><td class=mut>${q.brand}</td><td class=mut>${F(q.total_mt)}</td><td class=mut colspan=2>⏳ antre — belum di anchorage</td></tr>`});
  $m('t_ships').innerHTML=hs;

@@ -262,6 +262,45 @@ def record_blending_history(run_id, round_no, scenario_id, validator, sol, C):
 
 
 # --- refresh tabel Metabase lama (agar dashboard existing ikut update) --------
+def load_latest_state():
+    """Baca data input run TERBARU langsung dari Postgres (untuk deploy stateless spt Vercel,
+    di mana file output/ ephemeral). Kembalikan {'data': {...}} format ingestion, atau None."""
+    if not enabled():
+        return None
+    try:
+        with _connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT run_id, username, sumber FROM coalblend_runs ORDER BY id DESC LIMIT 1")
+                row = cur.fetchone()
+                if not row:
+                    cur.execute("SELECT run_id, username, sumber FROM coalblend_uploads ORDER BY id DESC LIMIT 1")
+                    row = cur.fetchone()
+                if not row:
+                    return None
+                run_id, username, sumber = row
+                cur.execute(
+                    "SELECT file_key, entity, volume_mt, cv_gar FROM coalblend_input_data WHERE run_id=%s",
+                    (run_id,))
+                rows = cur.fetchall()
+        if not rows:
+            return None
+        data = {'status': 'VALID', 'opening_stock': {}, 'coal_getting': {},
+                'demand_deal': {}, 'plan_kapasitas': {}}
+        for fk, entity, vol, cv in rows:
+            v = float(vol) if vol is not None else 0.0
+            if fk == 'demand_deal':
+                data.setdefault(fk, {})[entity] = {'volume_deal_mt': v}
+            elif fk == 'plan_kapasitas':
+                data.setdefault(fk, {})[entity] = {'kapasitas_mt': v}
+            elif fk in ('opening_stock', 'coal_getting'):
+                data[fk][entity] = {'volume_mt': v, 'cv_gar': float(cv) if cv is not None else 0.0}
+        return {'user': username or 'db', 'run_id': run_id,
+                'sumber': f'Postgres · {sumber or "defaultdb"}', 'data': data, 'alerts': []}
+    except Exception as e:
+        _log(f"load_latest_state gagal: {e!r}")
+        return None
+
+
 def refresh_business_process(data, C):
     """Replace isi public.business_process dari input run terbaru (snapshot bulanan).
     Metabase membaca tabel ini untuk dashboard 'business process' yang sudah ada."""

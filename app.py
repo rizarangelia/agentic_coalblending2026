@@ -263,10 +263,21 @@ def override():
     return synthesizer.render_review(scenarios, C, ov_alert + a2, calib=_load_calib(),
                                      meta=f"run {session.get('run_id','?')} · MANUAL OVERRIDE aktif · re-run < 1 detik")
 
+def _db_state_complete(st):
+    """Valid hanya bila semua entitas manifest lengkap (agar constraint.build tak gagal)."""
+    d = (st or {}).get('data') or {}
+    need = {'opening_stock': MANIFEST['sites'], 'coal_getting': MANIFEST['sites'],
+            'demand_deal': MANIFEST['brands'], 'plan_kapasitas': MANIFEST['sites']}
+    return all(set(names) <= set((d.get(k) or {})) for k, names in need.items())
+
 def _last_state():
     p = DATA_DIR / 'output/last_state.json'
     if p.exists():
         return json.loads(p.read_text())
+    # baca data run terbaru LANGSUNG dari Postgres (deploy stateless / Vercel)
+    dbst = db.load_latest_state()
+    if dbst and _db_state_complete(dbst):
+        return dbst
     # fallback fixtures
     fx = ROOT / 'fixtures'
     files = {k: ((fx / f'{k}_simulasi.csv').read_bytes(), f'{k}.csv')

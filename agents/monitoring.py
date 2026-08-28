@@ -115,27 +115,27 @@ def snapshot(sites_state, alloc, brand_total, now=None, max_ships=3):
     for i, (brand, tot) in enumerate(active):
         sx, sy = ANCHOR_SLOTS[i % len(ANCHOR_SLOTS)]
         name, buyer = SHIP_BY_BRAND.get(brand, (f'MV {brand}', 'Buyer'))
-        # jumlah tongkang untuk kapal ini (7–15), dibagi per situs sesuai alokasi blend
-        need = max(7, min(15, round(tot / 28000)))
+        # kapal buyer besar: kapasitas 50.000–80.000 MT, diisi 7–15 tongkang
+        vessel_cap = int(50000 + _seed('cap', brand) * 30000)
+        need = max(7, min(15, round(vessel_cap / 6000)))
         weights = {s: (alloc.get(s, {}) or {}).get(brand, 0) for s in SITES_XY}
         weights = {s: w for s, w in weights.items() if w and w > 0}
         per_site = _distribute(need, weights) if weights else {}
         need = sum(per_site.values()) or need
-        arrived = 0
+        arrived = 0; loaded = 0
         for site, cnt in per_site.items():
             for k in range(cnt):
                 off = _seed(brand, site, k)
                 spd = 0.85 + _seed('v', brand, site, k) * 0.45
                 p = ((now / PERIOD) * spd + off) % 1.0
-                # jalur tongkang: situs -> muara -> slot kapal (scatter kecil dekat kapal)
+                # jalur tongkang: Site -> muara -> slot kapal (scatter kecil dekat kapal)
                 jx = sx + (_seed('jx', brand, site, k) - 0.5) * 40
                 jy = sy + (_seed('jy', brand, site, k) - 0.5) * 46
                 x2, y2, ang = _point_on_path([SITES_XY[site], CONFLUENCE, (jx, jy)], p)
                 status, kn = _status(p)
+                cargo = int(5000 + _seed('cargo', brand, site, k) * 2000)  # tongkang 5.000–7.000 MT
                 if status in ('At Anchorage', 'Discharging'):
-                    arrived += 1
-                cargo = int((weights[site] / cnt)) if cnt else BARGE_CAP
-                cargo = max(6000, min(15000, cargo))
+                    arrived += 1; loaded += cargo
                 vla, vlo = _lerp_geo(site, p)
                 barges.append({
                     'id': f'TB-{site[:3].upper()}-{brand.replace(" ", "")[:5]}-{k+1:02d}',
@@ -147,7 +147,8 @@ def snapshot(sites_state, alloc, brand_total, now=None, max_ships=3):
                 })
         ships.append({'brand': brand, 'name': name, 'buyer': buyer, 'x': sx, 'y': sy,
                       'need_barges': need, 'arrived_barges': arrived,
-                      'fill': round(arrived / need, 3) if need else 0, 'total_mt': int(tot)})
+                      'fill': round(arrived / need, 3) if need else 0,
+                      'capacity_mt': vessel_cap, 'loaded_mt': loaded, 'total_mt': vessel_cap})
 
     active_barges = len(barges)
     enroute_mt = sum(b['cargo_mt'] for b in barges if b['status'] == 'En-route')
@@ -160,7 +161,8 @@ def snapshot(sites_state, alloc, brand_total, now=None, max_ships=3):
         'confluence': {'x': CONFLUENCE[0], 'y': CONFLUENCE[1]},
         'sites': sites_out, 'ships': ships, 'barges': barges,
         'queued': [{'brand': b, 'name': SHIP_BY_BRAND.get(b, (f'MV {b}', '-'))[0],
-                    'buyer': SHIP_BY_BRAND.get(b, ('-', 'Buyer'))[1], 'total_mt': int(t)}
+                    'buyer': SHIP_BY_BRAND.get(b, ('-', 'Buyer'))[1],
+                    'total_mt': int(50000 + _seed('cap', b) * 30000)}
                    for b, t in queued],
         'kpi': {'barges': active_barges, 'ships': len(ships), 'enroute_mt': enroute_mt,
                 'loading': loading, 'anchor': at_anchor, 'discharging': discharging},
