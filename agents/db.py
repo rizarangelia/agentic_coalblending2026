@@ -155,17 +155,22 @@ def init():
     if not enabled():
         _log("DATABASE_URL belum di-set — persistensi Postgres NONAKTIF (pakai file JSON).")
         return False
+    conn = None
     try:
-        with _connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(SCHEMA)
-                cur.execute(_EXISTING_DDL)
-            conn.commit()
+        conn = _connect()
+        with conn.cursor() as cur:
+            cur.execute(SCHEMA)
+            cur.execute(_EXISTING_DDL)
+        conn.commit()
         _log("Skema Postgres siap (tabel history + existing).")
         return True
     except Exception as e:
         _log(f"init() gagal: {e!r}")
         return False
+    finally:
+        if conn:
+            try: conn.close()
+            except Exception: pass
 
 
 def _safe(fn):
@@ -173,17 +178,25 @@ def _safe(fn):
     global _WARNED
     if not enabled():
         return False
+    conn = None
     try:
-        with _connect() as conn:
-            fn(conn)
-            conn.commit()
+        conn = _connect()
+        fn(conn)
+        conn.commit()
         return True
     except Exception as e:
         _log(f"{getattr(fn, '__name__', 'op')} gagal: {e!r}")
+        if conn:
+            try: conn.rollback()
+            except Exception: pass
         if not _WARNED:
             _WARNED = True
             _log("Peringatan pertama tercatat — cek DATABASE_URL / jaringan / SSL.")
         return False
+    finally:
+        if conn:
+            try: conn.close()
+            except Exception: pass
 
 
 # --- API tulis (dipanggil dari app.py) ---------------------------------------
@@ -267,21 +280,22 @@ def load_latest_state():
     di mana file output/ ephemeral). Kembalikan {'data': {...}} format ingestion, atau None."""
     if not enabled():
         return None
+    conn = None
     try:
-        with _connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT run_id, username, sumber FROM coalblend_runs ORDER BY id DESC LIMIT 1")
+        conn = _connect()
+        with conn.cursor() as cur:
+            cur.execute("SELECT run_id, username, sumber FROM coalblend_runs ORDER BY id DESC LIMIT 1")
+            row = cur.fetchone()
+            if not row:
+                cur.execute("SELECT run_id, username, sumber FROM coalblend_uploads ORDER BY id DESC LIMIT 1")
                 row = cur.fetchone()
-                if not row:
-                    cur.execute("SELECT run_id, username, sumber FROM coalblend_uploads ORDER BY id DESC LIMIT 1")
-                    row = cur.fetchone()
-                if not row:
-                    return None
-                run_id, username, sumber = row
-                cur.execute(
-                    "SELECT file_key, entity, volume_mt, cv_gar FROM coalblend_input_data WHERE run_id=%s",
-                    (run_id,))
-                rows = cur.fetchall()
+            if not row:
+                return None
+            run_id, username, sumber = row
+            cur.execute(
+                "SELECT file_key, entity, volume_mt, cv_gar FROM coalblend_input_data WHERE run_id=%s",
+                (run_id,))
+            rows = cur.fetchall()
         if not rows:
             return None
         data = {'status': 'VALID', 'opening_stock': {}, 'coal_getting': {},
@@ -299,6 +313,10 @@ def load_latest_state():
     except Exception as e:
         _log(f"load_latest_state gagal: {e!r}")
         return None
+    finally:
+        if conn:
+            try: conn.close()
+            except Exception: pass
 
 
 def refresh_business_process(data, C):
