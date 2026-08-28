@@ -48,6 +48,33 @@ git push origin main
 > **Catatan filesystem:** Railway ephemeral — file di `output/*.json` bisa ter-reset saat
 > redeploy. Itu tidak masalah karena **sumber kebenaran sudah Postgres**; JSON hanya cache/fallback.
 
+## 2b. Alternatif: Deploy ke Vercel (import dari GitHub)
+
+Repo ini sudah menyertakan `vercel.json` + `api/index.py` (WSGI serverless).
+
+1. https://vercel.com → **Add New → Project → Import** repo `agentic_coalblending2026`.
+2. Framework Preset: **Other** (Vercel membaca `vercel.json` otomatis). Build tidak perlu diubah.
+3. **Environment Variables** (Settings → Environment Variables):
+
+   | Variable | Nilai |
+   |---|---|
+   | `DATABASE_URL` | `postgresql://USER:PASS@HOST:5432/defaultdb?sslmode=require` |
+   | `SECRET_KEY` | string acak panjang |
+   | `DATADOCKED_API_KEY` | (opsional) |
+
+   `DATA_DIR` sudah otomatis di-set ke `/tmp` oleh `api/index.py` (Vercel read-only kecuali /tmp).
+4. **Deploy** → dapat domain publik `https://<proyek>.vercel.app`.
+
+> ⚠️ **Penting — Vercel itu serverless (stateless):**
+> - Dashboard `/dashboard` & **Monitoring Realtime** berjalan baik (baca fixtures/DB, read-only).
+> - Persistensi ke Postgres tetap jalan (upload/run tercatat ke `defaultdb`).
+> - TAPI state antar-request di memori (`app.config['LAST']` untuk /override & /decide) **tidak
+>   dijamin persist** antar invocation/cold-start. Untuk alur multi-langkah (upload → review →
+>   decide) yang andal, **Railway/Render lebih cocok** (server stateful yang selalu hidup).
+> - Jika solver CBC bermasalah di Lambda, itu batasan serverless — pakai Railway.
+
+**Rekomendasi:** Vercel untuk publish demo dashboard/monitoring; **Railway** bila butuh alur HITL penuh.
+
 ## 3. Onlinekan Dashboard via Metabase Cloud
 
 1. Daftar di https://www.metabase.com/cloud → buat instance.
