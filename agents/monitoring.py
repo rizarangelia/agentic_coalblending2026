@@ -28,7 +28,9 @@ GEO = {  # perkiraan wilayah Berau, Kalimantan Timur (untuk tabel)
     'BMO3':      (1.965, 117.605),
 }
 CONFLUENCE = (600, 300)          # muara / pertemuan alur sungai
-ANCHOR_SLOTS = [(855, 140), (890, 300), (855, 460)]   # slot kapal buyer di anchorage
+# slot SHIPMENT di anchorage (kanan) — dilengkapi 6 titik (zigzag) agar tiap
+# shipment brand punya posisi sendiri: Shipment Eboni 01, Mahoni B 01/02, dst.
+ANCHOR_SLOTS = [(876, 58), (876, 148), (876, 238), (876, 328), (876, 418), (876, 508)]
 ANCHOR_GEO = (2.150, 118.240)
 PERIOD = 240.0                   # detik satu siklus voyage penuh (loop)
 BARGE_CAP = 8000                 # kapasitas tongkang tipikal (MT), untuk hitung jumlah
@@ -105,19 +107,27 @@ def snapshot(sites_state, alloc, brand_total, now=None, max_ships=3):
         sites_out.append({'site': name, 'x': x, 'y': y, 'lat': la, 'lon': lo,
                           'util': s.get('util'), 'cv': s.get('cv'), 'ship': s.get('ship')})
 
-    # kapal buyer = brand dengan shipment > 0, diurut tonase; top-N aktif di anchorage
+    # SHIPMENT = muatan 1 kapal untuk 1 brand. Brand bertonase besar bisa >1 shipment
+    # (Shipment Mahoni B 01, 02, ...). Diurut tonase; sebanyak slot yang aktif di anchorage.
     ranked = sorted([(b, t) for b, t in (brand_total or {}).items() if t and t > 0],
                     key=lambda kv: -kv[1])
-    active = ranked[:max_ships]
-    queued = ranked[max_ships:]
+    shipments_all = []
+    for brand, tot in ranked:
+        n = max(1, min(3, round(tot / 65000)))           # jumlah shipment per brand
+        for seq in range(1, n + 1):
+            shipments_all.append((brand, seq, tot))
+    # urut per-seq lalu tonase → slot aktif tersebar lintas brand (Eboni 01, Mahoni B 01, ...)
+    shipments_all.sort(key=lambda x: (x[1], -x[2]))
+    active = shipments_all[:len(ANCHOR_SLOTS)]
+    queued = shipments_all[len(ANCHOR_SLOTS):]
 
     ships, barges = [], []
-    for i, (brand, tot) in enumerate(active):
-        sx, sy = ANCHOR_SLOTS[i % len(ANCHOR_SLOTS)]
-        name, buyer = SHIP_BY_BRAND.get(brand, (f'MV {brand}', 'Buyer'))
-        # kapal buyer besar: kapasitas 50.000–80.000 MT, diisi 7–15 tongkang
-        vessel_cap = int(50000 + _seed('cap', brand) * 30000)
-        need = max(7, min(15, round(vessel_cap / 6000)))
+    for i, (brand, seq, tot) in enumerate(active):
+        sx, sy = ANCHOR_SLOTS[i]
+        vname, buyer = SHIP_BY_BRAND.get(brand, (f'MV {brand}', 'Buyer'))
+        label = f'Shipment {brand} {seq:02d}'
+        vessel_cap = int(50000 + _seed('cap', brand, seq) * 30000)   # kapal besar 50–80k MT
+        need = max(7, min(12, round(vessel_cap / 6500)))              # diisi 7–12 tongkang
         weights = {s: (alloc.get(s, {}) or {}).get(brand, 0) for s in SITES_XY}
         weights = {s: w for s, w in weights.items() if w and w > 0}
         per_site = _distribute(need, weights) if weights else {}
@@ -125,27 +135,27 @@ def snapshot(sites_state, alloc, brand_total, now=None, max_ships=3):
         arrived = 0; loaded = 0
         for site, cnt in per_site.items():
             for k in range(cnt):
-                off = _seed(brand, site, k)
-                spd = 0.85 + _seed('v', brand, site, k) * 0.45
+                off = _seed(brand, seq, site, k)
+                spd = 0.85 + _seed('v', brand, seq, site, k) * 0.45
                 p = ((now / PERIOD) * spd + off) % 1.0
-                # jalur tongkang: Site -> muara -> slot kapal (scatter kecil dekat kapal)
-                jx = sx + (_seed('jx', brand, site, k) - 0.5) * 40
-                jy = sy + (_seed('jy', brand, site, k) - 0.5) * 46
+                jx = sx + (_seed('jx', brand, seq, site, k) - 0.5) * 34
+                jy = sy + (_seed('jy', brand, seq, site, k) - 0.5) * 38
                 x2, y2, ang = _point_on_path([SITES_XY[site], CONFLUENCE, (jx, jy)], p)
                 status, kn = _status(p)
-                cargo = int(5000 + _seed('cargo', brand, site, k) * 2000)  # tongkang 5.000–7.000 MT
+                cargo = int(5000 + _seed('cargo', brand, seq, site, k) * 2000)  # tongkang 5.000–7.000 MT
                 if status in ('At Anchorage', 'Discharging'):
                     arrived += 1; loaded += cargo
                 vla, vlo = _lerp_geo(site, p)
                 barges.append({
-                    'id': f'TB-{site[:3].upper()}-{brand.replace(" ", "")[:5]}-{k+1:02d}',
-                    'site': site, 'ship': name, 'buyer': buyer, 'brand': brand,
+                    'id': f'TB-{site[:3].upper()}-{brand.replace(" ", "")[:4]}{seq}-{k+1:02d}',
+                    'site': site, 'ship': label, 'vessel': vname, 'buyer': buyer, 'brand': brand,
                     'x': round(x2, 1), 'y': round(y2, 1), 'heading': round(ang, 1),
                     'lat': vla, 'lon': vlo, 'status': status, 'speed_kn': kn,
                     'cargo_mt': cargo, 'progress': round(p, 3),
                     'eta_min': int((1 - p) * (PERIOD / 60)),
                 })
-        ships.append({'brand': brand, 'name': name, 'buyer': buyer, 'x': sx, 'y': sy,
+        ships.append({'brand': brand, 'seq': seq, 'label': label, 'name': label,
+                      'vessel': vname, 'buyer': buyer, 'x': sx, 'y': sy,
                       'need_barges': need, 'arrived_barges': arrived,
                       'fill': round(arrived / need, 3) if need else 0,
                       'capacity_mt': vessel_cap, 'loaded_mt': loaded, 'total_mt': vessel_cap})
@@ -160,10 +170,12 @@ def snapshot(sites_state, alloc, brand_total, now=None, max_ships=3):
         'source': 'simulasi barge corridor (deterministik realtime · racikan dari blend solver)',
         'confluence': {'x': CONFLUENCE[0], 'y': CONFLUENCE[1]},
         'sites': sites_out, 'ships': ships, 'barges': barges,
-        'queued': [{'brand': b, 'name': SHIP_BY_BRAND.get(b, (f'MV {b}', '-'))[0],
+        'queued': [{'brand': b, 'seq': seq, 'label': f'Shipment {b} {seq:02d}',
+                    'name': f'Shipment {b} {seq:02d}',
+                    'vessel': SHIP_BY_BRAND.get(b, (f'MV {b}', '-'))[0],
                     'buyer': SHIP_BY_BRAND.get(b, ('-', 'Buyer'))[1],
-                    'total_mt': int(50000 + _seed('cap', b) * 30000)}
-                   for b, t in queued],
+                    'total_mt': int(50000 + _seed('cap', b, seq) * 30000)}
+                   for b, seq, t in queued],
         'kpi': {'barges': active_barges, 'ships': len(ships), 'enroute_mt': enroute_mt,
                 'loading': loading, 'anchor': at_anchor, 'discharging': discharging},
     }

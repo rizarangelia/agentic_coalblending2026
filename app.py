@@ -46,7 +46,7 @@ def login():
             session['user'] = u
             return redirect('/dashboard')
         err = '<div class="err">Username / password salah.</div>'
-    body = f"""<h1>CoalBlend AI · MVP 1</h1><div class="sub">AI Coal Blending Optimizer — Login</div>
+    body = f"""<h1>beraucoal · Cortex</h1><div class="sub">Coal Blending Optimization &amp; Real Time Execution — Login</div>
     <form method="post"><label>Username</label><input name="u" autofocus>
     <label>Password</label><input name="p" type="password">{err}<button>Masuk</button></form>
     <div class="sub" style="margin-top:14px">Demo: planner / coalblend2026</div>"""
