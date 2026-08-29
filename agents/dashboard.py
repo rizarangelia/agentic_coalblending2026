@@ -19,9 +19,13 @@ aside{width:212px;background:var(--p);border-right:1px solid var(--l);padding:18
 .logo{font:900 17px Archivo;padding:0 8px 16px}.logo em{color:var(--g);font-style:normal}.logo small{display:block;font:600 8.5px 'IBM Plex Mono';color:var(--m);letter-spacing:.02em;text-transform:none;margin-top:4px;line-height:1.4}
 .nav{display:flex;flex-direction:column;gap:4px}.nav a{color:var(--m);text-decoration:none;padding:9px 11px;border-radius:9px;font-size:13px;border:1px solid transparent}
 .nav a.on{background:var(--p2);color:var(--ink);border-color:var(--l)}.nav a:hover{color:var(--ink)}
-.navgroup{font:700 9px 'IBM Plex Mono';color:var(--m);text-transform:uppercase;letter-spacing:.09em;padding:9px 6px 3px;margin-top:9px}
-.nav a.sub{margin-left:13px;padding-left:13px;font-size:12.5px;box-shadow:inset 2px 0 0 var(--l)}
-.nav a.sub:hover,.nav a.sub.on{box-shadow:inset 2px 0 0 var(--g)}
+.navgroup{font:700 9px 'IBM Plex Mono';color:var(--m);text-transform:uppercase;letter-spacing:.09em;padding:9px 8px 3px;margin-top:9px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none}
+.navgroup:hover{color:var(--ink)}
+.navgroup .caret{font-size:8px;transition:transform .2s;opacity:.8}
+.navgroup.collapsed .caret{transform:rotate(-90deg)}
+.navsub{display:flex;flex-direction:column;gap:4px;overflow:hidden;max-height:520px;transition:max-height .28s ease}
+.navsub.collapsed{max-height:0}
+.nav a.sub{margin-left:18px;font-size:12.5px}
 .nav a.navlive{color:var(--ink);font-weight:700;border-color:rgba(255,97,89,.4);background:rgba(255,97,89,.10)}
 .nav a.navlive:hover{background:rgba(255,97,89,.17)}.nav a.navlive.on{background:rgba(255,97,89,.2)}
 .livedot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#ff6159;margin-left:5px;vertical-align:1px;box-shadow:0 0 0 0 rgba(255,97,89,.6);animation:pulse 1.6s infinite}
@@ -111,19 +115,22 @@ a.btn{background:var(--g);color:#ffffff;font:700 12px 'IBM Plex Sans';padding:8p
 <aside><div class="logo">beraucoal <em>· Cortex</em><small>Coal Blending Optimization &amp; Real Time Execution</small></div>
 <div class="nav">
 <a href="#" data-s="mon" class="navlive">🔴 LIVE OPERATIONS<span class="livedot"></span></a>
-<div class="navgroup">🏆 Executive Overview</div>
+<div class="navgroup" data-g="exec" onclick="tgGrp(this)"><span class="caret">▾</span>🏆 Executive Overview</div>
+<div class="navsub">
 <a href="#" class="on sub" data-s="ov">📊 Dashboard</a>
 <a href="#" class="sub" data-s="rv">💰 Revenue</a>
-<a href="#" class="sub" data-s="ins">📈 Trend Data <span style="font-size:8px;color:var(--b)">DB</span></a>
-<div class="navgroup">🧠 AI Co-Pilot &amp; Workflow</div>
+<a href="#" class="sub" data-s="ins">📈 Trend Data <span style="font-size:8px;color:var(--b)">DB</span></a></div>
+<div class="navgroup" data-g="ai" onclick="tgGrp(this)"><span class="caret">▾</span>🧠 AI Co-Pilot &amp; Workflow</div>
+<div class="navsub">
 <a href="/input" class="sub">⬆️ Input Data</a>
 <a href="#" class="sub" data-s="ap">📦 Available Product</a>
 <a href="#" class="sub" data-s="bp">⚖️ Blending Plan</a>
 <a href="/review" class="sub">✅ Review &amp; Validasi</a>
 <a href="#" class="sub" data-s="pi">💡 Price Intel <span style="font-size:8px;color:var(--a)">MVP2</span></a>
-<a href="#" class="sub" data-s="si">🚢 Stock Intel <span style="font-size:8px;color:var(--a)">MVP3</span></a>
-<div class="navgroup">⚙️ Constraint</div>
-<a href="/constraints" class="sub">⚙️ Constraint</a>
+<a href="#" class="sub" data-s="si">🚢 Stock Intel <span style="font-size:8px;color:var(--a)">MVP3</span></a></div>
+<div class="navgroup" data-g="cons" onclick="tgGrp(this)"><span class="caret">▾</span>⚙️ Constraint</div>
+<div class="navsub">
+<a href="/constraints" class="sub">⚙️ Constraint</a></div>
 <a href="/logout" style="margin-top:9px">↩︎ Logout</a></div>
 <div class="foot">Model 1–9 v1.1 · Solver CBC<br>angka 100% dari solver</div></aside>
 <main>
@@ -288,6 +295,11 @@ document.querySelectorAll('.nav a[data-s]').forEach(a=>a.onclick=e=>{e.preventDe
  document.getElementById('title').textContent=a.textContent.replace(/^..\s*/,'').replace(/\s*(LIVE|DB)$/,'');
  a.dataset.s==='mon'?monStart():monStop();
  if(a.dataset.s==='ins')loadInsights();});
+// ===== expand/collapse grup menu =====
+function tgGrp(h){const sub=h.nextElementSibling; const col=sub.classList.toggle('collapsed'); h.classList.toggle('collapsed',col);
+ try{const st=JSON.parse(localStorage.getItem('cortex-nav')||'{}'); st[h.dataset.g]=col; localStorage.setItem('cortex-nav',JSON.stringify(st));}catch(e){}}
+(function(){try{const st=JSON.parse(localStorage.getItem('cortex-nav')||'{}');
+ document.querySelectorAll('.navgroup').forEach(h=>{ if(st[h.dataset.g]){ h.classList.add('collapsed'); const s=h.nextElementSibling; if(s)s.classList.add('collapsed'); }});}catch(e){}})();
 
 function mk(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg);}
 async function load(){ST=await (await fetch('/api/state')).json();renderAll();buildSliders();loadReco();}
