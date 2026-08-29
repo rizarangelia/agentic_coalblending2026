@@ -115,6 +115,25 @@ def _chosen():
 def _chosen_save(d):
     (DATA_DIR / 'output/chosen.json').write_text(json.dumps(d, ensure_ascii=False))
 
+def _inject_print(html, opsi):
+    """Sisipkan toolbar cetak (Simpan sebagai PDF via window.print) + judul + CSS print
+    ke halaman report agar bisa diunduh sebagai PDF dari browser (tanpa lib PDF berat)."""
+    head = (f"<title>Report Final Opsi {opsi} - beraucoal Cortex</title>"
+            "<style>@media print{.rbar{display:none!important}body{padding:0}}"
+            ".rbar{position:sticky;top:0;display:flex;gap:10px;align-items:center;background:#131c1f;"
+            "border-bottom:1px solid #23312f;padding:10px 16px;margin:-16px -16px 18px;z-index:9;flex-wrap:wrap}"
+            ".rbar button,.rbar a{background:#c6613f;color:#fff;border:none;font:700 12px 'IBM Plex Sans',sans-serif;"
+            "padding:9px 15px;border-radius:8px;cursor:pointer;text-decoration:none}"
+            ".rbar a.sec{background:transparent;border:1px solid #37342f;color:#cfe3df}"
+            ".rbar .tip{color:#8aa09c;font:11px 'IBM Plex Mono',monospace}</style>")
+    bar = ('<div class="rbar"><button onclick="window.print()">⬇ Simpan sebagai PDF</button>'
+           '<a class="sec" href="/dashboard?go=rv">← Revenue</a>'
+           '<a class="sec" href="/review">Review &amp; Validasi</a>'
+           '<span class="tip">Tip: pada dialog cetak pilih "Save as PDF / Simpan sebagai PDF"</span></div>')
+    html = html.replace('</head>', head + '</head>', 1)
+    html = html.replace('<body>', '<body>' + bar, 1)
+    return html
+
 def _history_html():
     rows = ''
     for r in _rounds():
@@ -240,20 +259,24 @@ def decide():
     # APPROVE -> kunci opsi terpilih supaya menu Revenue/Blending selaras dgn opsi ini
     if aksi == 'approve':
         _chosen_save({'run_id': session.get('run_id', '?'), 'opsi': opsi,
-                      'nama': (run.get(opsi) or {}).get('nama', ''),
+                      'nama': (run.get(opsi) or {}).get('nama', ''), 'catatan': catatan,
                       'validator': session['user'], 'ts': rec['waktu']})
     report_link = ''
     L = app.config.get('LAST')
-    if aksi == 'approve' and L:
-        sc = next((s for s in L['scenarios'] if s['id'] == opsi and s['sol']), None)
-        if sc:
-            rp = DATA_DIR / f"output/report_final_{session.get('run_id','x')}_{opsi}.html"
-            rp.write_text(synthesizer.render_report(sc, L['C'], session.get('run_id','?'), session['user'], catatan))
-            report_link = f'<p class="ok">Report Final &amp; Rekomendasi Eksekusi diterbitkan: {rp.name}</p>'
-            # PERSIST: alokasi opsi disetujui -> history DB + refresh tabel alokasi Metabase
-            db.record_blending_history(session.get('run_id', '?'), len(_rounds()), opsi,
-                                       session['user'], sc['sol'], L['C'])
-            db.refresh_blending_allocation(sc['sol'], L['C'])
+    if aksi == 'approve':
+        report_link = (f'<a href="/report?opsi={opsi}" style="display:inline-block;background:#20201f;'
+                       f'border:1px solid #37342f;color:#f0efec;padding:11px 18px;border-radius:9px;'
+                       f'text-decoration:none;font-weight:700;margin:6px 0">📄 Buka Report Final &amp; Rekomendasi '
+                       f'Eksekusi — bisa disimpan PDF</a>')
+        if L:
+            sc = next((s for s in L['scenarios'] if s['id'] == opsi and s['sol']), None)
+            if sc:
+                rp = DATA_DIR / f"output/report_final_{session.get('run_id','x')}_{opsi}.html"
+                rp.write_text(synthesizer.render_report(sc, L['C'], session.get('run_id','?'), session['user'], catatan))
+                # PERSIST: alokasi opsi disetujui -> history DB + refresh tabel alokasi Metabase
+                db.record_blending_history(session.get('run_id', '?'), len(_rounds()), opsi,
+                                           session['user'], sc['sol'], L['C'])
+                db.refresh_blending_allocation(sc['sol'], L['C'])
     verdict = ('DISETUJUI — blending plan siap dipublikasikan ke Marketing.' if aksi == 'approve'
                else 'DITOLAK — catatan Anda tercatat sebagai sinyal kalibrasi.')
     rev_link = ''
@@ -436,6 +459,27 @@ def api_dbstatus():
 def dashboard():
     if not logged_in(): return redirect('/')
     return DASH_HTML
+
+@app.route('/report')
+def report():
+    """Report Final & Rekomendasi Eksekusi (opsi disetujui) — dibuat ulang on-demand
+    (aman di serverless) + toolbar 'Simpan sebagai PDF'."""
+    if not logged_in(): return redirect('/')
+    ch = _chosen()
+    opsi = request.args.get('opsi') or (ch or {}).get('opsi')
+    if not opsi:
+        return render_template_string(PAGE, body='<h1>Belum ada opsi disetujui</h1>'
+                                      '<a href="/review">← Review &amp; Validasi</a>')
+    st = _last_state()
+    _, C, _ = _solve_from(st['data'])
+    sc = next((s for s in optimizer.solve_scenarios(C) if s['id'] == opsi and s.get('sol')), None)
+    if not sc:
+        return render_template_string(PAGE, body=f'<h1>Opsi {opsi} tidak tersedia untuk run ini</h1>'
+                                      '<a href="/review">← Review &amp; Validasi</a>')
+    validator = (ch or {}).get('validator', session.get('user', '-'))
+    catatan = (ch or {}).get('catatan', '') if (ch and ch.get('opsi') == opsi) else ''
+    html = synthesizer.render_report(sc, C, st.get('run_id', '?'), validator, catatan)
+    return _inject_print(html, opsi)
 
 @app.route('/api/state')
 def api_state():
