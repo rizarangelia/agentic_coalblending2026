@@ -19,7 +19,9 @@ aside{width:212px;background:var(--p);border-right:1px solid var(--l);padding:18
 .logo{font:900 17px Archivo;padding:0 8px 16px}.logo em{color:var(--g);font-style:normal}.logo small{display:block;font:600 8.5px 'IBM Plex Mono';color:var(--m);letter-spacing:.02em;text-transform:none;margin-top:4px;line-height:1.4}
 .nav{display:flex;flex-direction:column;gap:4px}.nav a{color:var(--m);text-decoration:none;padding:9px 11px;border-radius:9px;font-size:13px;border:1px solid transparent}
 .nav a.on{background:var(--p2);color:var(--ink);border-color:var(--l)}.nav a:hover{color:var(--ink)}
-.navgroup{font:700 9px 'IBM Plex Mono';color:var(--m);text-transform:uppercase;letter-spacing:.09em;padding:9px 11px 3px;margin-top:9px}
+.navgroup{font:700 9px 'IBM Plex Mono';color:var(--m);text-transform:uppercase;letter-spacing:.09em;padding:9px 6px 3px;margin-top:9px}
+.nav a.sub{margin-left:13px;padding-left:13px;font-size:12.5px;box-shadow:inset 2px 0 0 var(--l)}
+.nav a.sub:hover,.nav a.sub.on{box-shadow:inset 2px 0 0 var(--g)}
 .nav a.navlive{color:var(--ink);font-weight:700;border-color:rgba(255,97,89,.4);background:rgba(255,97,89,.10)}
 .nav a.navlive:hover{background:rgba(255,97,89,.17)}.nav a.navlive.on{background:rgba(255,97,89,.2)}
 .livedot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#ff6159;margin-left:5px;vertical-align:1px;box-shadow:0 0 0 0 rgba(255,97,89,.6);animation:pulse 1.6s infinite}
@@ -110,18 +112,18 @@ a.btn{background:var(--g);color:#ffffff;font:700 12px 'IBM Plex Sans';padding:8p
 <div class="nav">
 <a href="#" data-s="mon" class="navlive">🔴 LIVE OPERATIONS<span class="livedot"></span></a>
 <div class="navgroup">🏆 Executive Overview</div>
-<a href="#" class="on" data-s="ov">📊 Dashboard</a>
-<a href="#" data-s="rv">💰 Revenue</a>
-<a href="#" data-s="ins">📈 Trend Data <span style="font-size:8px;color:var(--b)">DB</span></a>
+<a href="#" class="on sub" data-s="ov">📊 Dashboard</a>
+<a href="#" class="sub" data-s="rv">💰 Revenue</a>
+<a href="#" class="sub" data-s="ins">📈 Trend Data <span style="font-size:8px;color:var(--b)">DB</span></a>
 <div class="navgroup">🧠 AI Co-Pilot &amp; Workflow</div>
-<a href="/input">⬆️ Input Data</a>
-<a href="#" data-s="ap">📦 Available Product</a>
-<a href="#" data-s="bp">⚖️ Blending Plan</a>
-<a href="/review">✅ Review &amp; Validasi</a>
-<a href="#" data-s="pi">💡 Price Intel <span style="font-size:8px;color:var(--a)">MVP2</span></a>
-<a href="#" data-s="si">🚢 Stock Intel <span style="font-size:8px;color:var(--a)">MVP3</span></a>
+<a href="/input" class="sub">⬆️ Input Data</a>
+<a href="#" class="sub" data-s="ap">📦 Available Product</a>
+<a href="#" class="sub" data-s="bp">⚖️ Blending Plan</a>
+<a href="/review" class="sub">✅ Review &amp; Validasi</a>
+<a href="#" class="sub" data-s="pi">💡 Price Intel <span style="font-size:8px;color:var(--a)">MVP2</span></a>
+<a href="#" class="sub" data-s="si">🚢 Stock Intel <span style="font-size:8px;color:var(--a)">MVP3</span></a>
 <div class="navgroup">⚙️ Constraint</div>
-<a href="/constraints">⚙️ Constraint</a>
+<a href="/constraints" class="sub">⚙️ Constraint</a>
 <a href="/logout" style="margin-top:9px">↩︎ Logout</a></div>
 <div class="foot">Model 1–9 v1.1 · Solver CBC<br>angka 100% dari solver</div></aside>
 <main>
