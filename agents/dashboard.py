@@ -148,7 +148,7 @@ a.btn{background:var(--g);color:#ffffff;font:700 12px 'IBM Plex Sans';padding:8p
 
 <section id="ov" class="on">
 <div class="kpis">
-<div class="kpi"><div class="l">Total Revenue (Opsi A)</div><div class="v" id="k_rev">—</div><div class="d">objective solver</div></div>
+<div class="kpi"><div class="l" id="k_rev_l">Total Revenue</div><div class="v" id="k_rev">—</div><div class="d" id="k_rev_d">objective solver</div></div>
 <div class="kpi b"><div class="l">Total Shipment</div><div class="v" id="k_ship">—</div><div class="d" id="k_cap">—</div></div>
 <div class="kpi a"><div class="l">Brand di Batas Reject</div><div class="v" id="k_rej">—</div><div class="d">risiko klaim buyer</div></div>
 <div class="kpi"><div class="l">Closing Stock Total</div><div class="v" id="k_cs">—</div><div class="d">buffer anti-demurrage</div></div></div>
@@ -266,6 +266,7 @@ asli (Data Docked) tersedia server-side via <code>DATADOCKED_API_KEY</code> — 
 <section id="rv">
 <h2>💰 Revenue = Tonnage Product × Harga</h2>
 <div class="cap">Harga aktual mengikuti kualitas blending: harga = base price × (CV blending ÷ CV kontrak).</div>
+<div id="rv_note"></div>
 <div class="card tw"><table id="t_rev"></table></div>
 <div class="card"><h2 style="border:none;margin:0 0 8px">📊 Revenue per Brand</h2><canvas id="c_rev"></canvas></div>
 </section>
@@ -302,7 +303,9 @@ function tgGrp(h){const sub=h.nextElementSibling; const col=sub.classList.toggle
  document.querySelectorAll('.navgroup').forEach(h=>{ if(st[h.dataset.g]){ h.classList.add('collapsed'); const s=h.nextElementSibling; if(s)s.classList.add('collapsed'); }});}catch(e){}})();
 
 function mk(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg);}
-async function load(){ST=await (await fetch('/api/state')).json();renderAll();buildSliders();loadReco();}
+async function load(){ST=await (await fetch('/api/state')).json();renderAll();buildSliders();loadReco();
+ const go=new URLSearchParams(location.search).get('go')||location.hash.slice(1);
+ if(go){const a=document.querySelector('.nav a[data-s="'+go+'"]'); if(a)a.click();}}
 // ===== REKOMENDASI AI per menu (dari histori DB) — disisipkan di atas tiap section =====
 async function loadReco(){
  let d; try{ d=await (await fetch('/api/reco')).json(); }catch(e){ return; }
@@ -317,7 +320,10 @@ function sol(){return ST.solution}
 
 function renderAll(){
  const s=sol(),S=ST.sites,B=ST.brands;
- document.getElementById('meta').textContent=`sumber data: ${ST.meta.sumber} · manifest v${ST.meta.versi} · user: ${ST.meta.user}`;
+ const OP=ST.meta.opsi;
+ document.getElementById('meta').textContent=`sumber data: ${ST.meta.sumber} · manifest v${ST.meta.versi} · user: ${ST.meta.user}`+(OP?` · ✓ Opsi ${OP.opsi} terpilih (${OP.nama||''})`:'');
+ document.getElementById('k_rev_l').textContent='Total Revenue ('+(OP?'Opsi '+OP.opsi:'Opsi A')+')';
+ document.getElementById('k_rev_d').textContent=OP?`opsi terpilih validator ${OP.validator||''}`:'objective solver';
  document.getElementById('k_rev').textContent=F(s.revenue);
  document.getElementById('k_ship').textContent=F(s.total_ship);
  document.getElementById('k_cap').textContent='/ kapasitas '+F(ST.total_capacity);
@@ -367,7 +373,10 @@ function renderBlend(){
   options:{scales:{x:{stacked:true,grid:GRID,ticks:TICK},y:{stacked:true,grid:GRID,ticks:TICK}},plugins:{legend:{labels:{color:TICK.color}}}}});
 }
 function renderRev(){
- const s=sol(),B=ST.brands;
+ const s=sol(),B=ST.brands,OP=ST.meta.opsi;
+ document.getElementById('rv_note').innerHTML = OP
+  ? `<div class="note b2">✓ Revenue &amp; kolom <b>CV Blending / Kontrak</b> di bawah selaras dengan <b>Opsi ${OP.opsi} — ${OP.nama||''}</b> yang disetujui validator ${OP.validator||''}. CV blending mengikuti opsi terpilih, bukan solve baseline.</div>`
+  : `<div class="note a2">Menampilkan solve baseline (Opsi A). Setujui salah satu opsi di <a href="/review" style="color:var(--b)">Review &amp; Validasi</a> agar Revenue selaras dengan opsi pilihan Anda.</div>`;
  let h='<tr><th>Brand</th><th>Tonnage (MT)</th><th>Base Price ($/MT)</th><th>CV Blending / Kontrak</th><th>Harga Aktual ($/MT)</th><th>Revenue ($)</th></tr>',tot=0;
  B.forEach(b=>{const t=s.brand_total[b],cv=s.brand_cv[b],bp=ST.price[b],k=ST.cv_max[b],pa=bp*cv/k,rev=s.brand_revenue[b];tot+=rev;
   h+=`<tr><td>${b}</td><td>${F(t)}</td><td>${bp}</td><td class=mut>${F1(cv)} / ${F1(k)}</td><td>${pa.toFixed(2)}</td><td><b>${F(rev)}</b></td></tr>`});

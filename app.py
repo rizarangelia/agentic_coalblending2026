@@ -106,6 +106,15 @@ def _rounds():
 def _rounds_save(r):
     (DATA_DIR / 'output/rounds.json').write_text(json.dumps(r, indent=1, ensure_ascii=False))
 
+def _chosen():
+    """Opsi (A/B/C) yang DISETUJUI validator untuk run terakhir — agar menu Revenue/Blending
+    selaras dengan opsi terpilih, bukan solve baseline."""
+    p = DATA_DIR / 'output/chosen.json'
+    return json.loads(p.read_text()) if p.exists() else None
+
+def _chosen_save(d):
+    (DATA_DIR / 'output/chosen.json').write_text(json.dumps(d, ensure_ascii=False))
+
 def _history_html():
     rows = ''
     for r in _rounds():
@@ -228,6 +237,11 @@ def decide():
         rounds[-1]['chosen'] = {'opsi': opsi, 'aksi': aksi, 'catatan': catatan,
                                 'revenue': rec['revenue'], 'validator': session['user'], 'ts': rec['waktu']}
         _rounds_save(rounds)
+    # APPROVE -> kunci opsi terpilih supaya menu Revenue/Blending selaras dgn opsi ini
+    if aksi == 'approve':
+        _chosen_save({'run_id': session.get('run_id', '?'), 'opsi': opsi,
+                      'nama': (run.get(opsi) or {}).get('nama', ''),
+                      'validator': session['user'], 'ts': rec['waktu']})
     report_link = ''
     L = app.config.get('LAST')
     if aksi == 'approve' and L:
@@ -242,6 +256,13 @@ def decide():
             db.refresh_blending_allocation(sc['sol'], L['C'])
     verdict = ('DISETUJUI — blending plan siap dipublikasikan ke Marketing.' if aksi == 'approve'
                else 'DITOLAK — catatan Anda tercatat sebagai sinyal kalibrasi.')
+    rev_link = ''
+    if aksi == 'approve':
+        rev_link = (f'<a href="/dashboard?go=rv" style="display:inline-block;background:#c6613f;color:#fff;'
+                    f'padding:11px 18px;border-radius:9px;text-decoration:none;font-weight:700;margin:10px 0">'
+                    f'→ Lihat Revenue (CV blending Opsi {opsi})</a>'
+                    f'<div class="sub" style="margin:2px 0 8px">Tidak ada koreksi demand lagi? Lanjut ke Revenue — '
+                    f'angka &amp; CV blending/kontrak selaras dengan Opsi {opsi} yang Anda pilih.</div>')
     demand_form = ''
     if aksi == 'approve':
         nro = len(_rounds())
@@ -260,6 +281,7 @@ def decide():
     <p class="{'ok' if aksi=='approve' else 'err'}">Validator: {session['user']} · Catatan: {catatan or '—'}</p>
     <p class="sub">Kalibrasi: {c['total_keputusan']} keputusan terekam · favorit saat ini: skenario {c.get('skenario_favorit','-')}</p>
     {report_link}
+    {rev_link}
     {demand_form}
     <a href="/input">← Input lengkap (4 file)</a> · <a href="/review">Riwayat ronde</a>"""
     return render_template_string(PAGE, body=body)
@@ -420,6 +442,17 @@ def api_state():
     if not logged_in(): return {'error': 'unauthorized'}, 401
     st = _last_state()
     sol, C, alerts = _solve_from(st['data'])
+    # SELARAS OPSI TERPILIH: bila validator sudah approve opsi (A/B/C) utk run ini,
+    # tampilkan solusi opsi tsb (CV blending/kontrak selaras), bukan solve baseline.
+    opsi_meta = None
+    ch = _chosen()
+    if ch and ch.get('run_id') == st.get('run_id') and ch.get('opsi'):
+        scen = optimizer.solve_scenarios(C)
+        csc = next((s for s in scen if s['id'] == ch['opsi'] and s.get('sol')), None)
+        if csc:
+            sol = csc['sol']
+            opsi_meta = {'opsi': ch['opsi'], 'nama': csc.get('nama') or ch.get('nama'),
+                         'validator': ch.get('validator')}
     sol['deal'] = C['deal']
     sites = [{'site': s, 'opening': st['data']['opening_stock'][s]['volume_mt'],
               'cv_open': st['data']['opening_stock'][s]['cv_gar'],
@@ -429,7 +462,7 @@ def api_state():
               'jetty': C['jetty_capacity'][s], 'cs_min': C['cs_min'][s], 'cs_max': C['cs_max'][s]}
              for s in C['sites']]
     return {'meta': {'user': st['user'], 'sumber': st['sumber'],
-                     'versi': MANIFEST['_meta'].get('versi', '?'), 'run_id': st['run_id']},
+                     'versi': MANIFEST['_meta'].get('versi', '?'), 'run_id': st['run_id'], 'opsi': opsi_meta},
             'sites': sites, 'brands': C['brands'], 'allowance': C['allowance'],
             'cv_min': C['cv_min'], 'cv_max': C['cv_max'], 'price': C['price'],
             'cv_reject': {b: MANIFEST['brand_spec'][b]['cv_min_reject'] for b in C['brands']},
