@@ -65,10 +65,19 @@ def defaults(manifest):
 
 def load(manifest):
     d = defaults(manifest)
+    # 1) prioritas: constraint terbaru dari Postgres (persist lintas restart/deploy)
+    try:
+        from agents import db
+        dbc = db.load_constraints()
+        if dbc:
+            _merge(d, dbc)
+            return d
+    except Exception:
+        pass
+    # 2) fallback: file JSON lokal
     try:
         if PATH.exists():
-            saved = json.loads(PATH.read_text(encoding='utf-8'))
-            _merge(d, saved)
+            _merge(d, json.loads(PATH.read_text(encoding='utf-8')))
     except Exception:
         pass
     return d

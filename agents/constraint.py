@@ -50,6 +50,7 @@ def build(manifest: dict, data: dict, overrides: dict = None, settings: dict = N
         'deal': deal, 'deal_multiplier': mult,
         'allowance': manifest['allowance_matrix'],
         'cv_min': {b: spec[b]['cv_min_reject'] for b in brands},
+        'cv_reject': {b: spec[b]['cv_min_reject'] for b in brands},  # batas reject asli (tak pernah ditimpa)
         'cv_max': {b: spec[b]['cv_max_typical'] for b in brands},
         'price': {b: spec[b]['base_price_simulasi'] for b in brands},  # MVP1: dummy; runtime: input tim komersial
         'cs_min': {s: csb[s]['min'] for s in sites},

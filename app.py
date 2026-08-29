@@ -388,10 +388,16 @@ def constraints():
                 d = s[dim].setdefault(b, {})
                 d['min'] = fnum(f'{dim}_min_{b}', 0) or 0
                 d['max'] = fnum(f'{dim}_max_{b}', None)
-        cset.save(s)
-        SETTINGS = cset.load(MANIFEST)
-        return constraints_page.render(SETTINGS, MANIFEST, saved=True)
+        cset.save(s)                                   # simpan file JSON (fallback lokal)
+        db_ok = db.save_constraints(s, session['user'])  # UPDATE tabel Postgres (Aiven)
+        SETTINGS = cset.load(MANIFEST)                  # reload (dari DB bila terhubung)
+        return constraints_page.render(SETTINGS, MANIFEST, saved=True, db_ok=db_ok)
     return constraints_page.render(SETTINGS, MANIFEST)
+
+@app.route('/api/reco')
+def api_reco():
+    if not logged_in(): return {'error': 'unauthorized'}, 401
+    return db.reco(MANIFEST)
 
 @app.route('/dashboard')
 def dashboard():

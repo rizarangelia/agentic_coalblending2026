@@ -188,6 +188,24 @@ CREATE TABLE IF NOT EXISTS coalblend_barge_trips (
     departed_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Constraint settings tersimpan di DB (menu Constraints -> Simpan). Payload jsonb utuh untuk
+-- reload; params flat untuk Metabase.
+CREATE TABLE IF NOT EXISTS coalblend_constraints (
+    id serial PRIMARY KEY,
+    saved_at timestamptz NOT NULL DEFAULT now(),
+    username text,
+    payload jsonb
+);
+CREATE TABLE IF NOT EXISTS coalblend_constraint_params (
+    id serial PRIMARY KEY,
+    saved_at timestamptz NOT NULL DEFAULT now(),
+    username text,
+    category text,
+    entity text,
+    param text,
+    value numeric
+);
 """
 
 
@@ -602,3 +620,114 @@ def insights():
             'status': v['status']} for v in _gen_vessels()]
     return {'source': 'contoh (DB tidak terhubung)', 'revenue_trend': rev, 'daily_shipment': daily,
             'decisions': dec, 'vessels': ves, 'sites': [s[0] for s in _SEED_SITES]}
+
+
+# ============================================================================
+# CONSTRAINTS ke DB (menu Constraints -> Simpan) + REKOMENDASI AI dari histori
+# ============================================================================
+def save_constraints(settings, username='planner'):
+    """Simpan constraint settings ke Postgres: 1 baris jsonb (audit + reload) + baris flat
+    per parameter (untuk Metabase). Dipanggil saat klik 'Simpan Constraints'."""
+    payload = json.dumps(settings, ensure_ascii=False)
+
+    def op(conn):
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO coalblend_constraints (username, payload) VALUES (%s,%s::jsonb)",
+                        (username, payload))
+            rows = [(username, 'global', '-', 'quality_margin_cv', settings.get('quality_margin_cv')),
+                    (username, 'global', '-', 'quality_reward', settings.get('quality_reward'))]
+            cap = settings.get('capacity') or {}
+            rows.append((username, 'capacity_total', 'total', 'min', cap.get('total_min')))
+            rows.append((username, 'capacity_total', 'total', 'max', cap.get('total_max')))
+            for s, pj in (cap.get('per_jetty') or {}).items():
+                rows.append((username, 'capacity_jetty', s, 'min', (pj or {}).get('min')))
+                rows.append((username, 'capacity_jetty', s, 'max', (pj or {}).get('max')))
+            for dim in ('cv', 'ts', 'ash', 'na2o'):
+                for b, mm in (settings.get(dim) or {}).items():
+                    rows.append((username, dim, b, 'min', (mm or {}).get('min')))
+                    rows.append((username, dim, b, 'max', (mm or {}).get('max')))
+            for s, a in (settings.get('site_assay') or {}).items():
+                for dim in ('ts', 'ash', 'na2o'):
+                    rows.append((username, 'assay_' + dim, s, 'value', (a or {}).get(dim)))
+            cur.executemany(
+                "INSERT INTO coalblend_constraint_params (username,category,entity,param,value)"
+                " VALUES (%s,%s,%s,%s,%s)", rows)
+    return _safe(op)
+
+
+def load_constraints():
+    """Ambil constraint settings terbaru dari DB (payload jsonb) — untuk reload lintas restart."""
+    if not enabled():
+        return None
+    rows = _fetch("SELECT payload FROM coalblend_constraints ORDER BY id DESC LIMIT 1")
+    if rows and isinstance(rows[0].get('payload'), dict):
+        return rows[0]['payload']
+    return None
+
+
+def reco(manifest):
+    """Rekomendasi AI per menu, dihitung dari data HISTORI (Postgres bila ada, selain itu dummy).
+    Rule-based deterministik atas tren revenue, keputusan, utilisasi harian, ETA kapal."""
+    ins = insights()
+    rev = ins.get('revenue_trend') or []
+    dec = ins.get('decisions') or []
+    ves = ins.get('vessels') or []
+    out = {}
+
+    # --- Overview: tren revenue + approval rate ---
+    if len(rev) >= 2:
+        a, b = rev[-2]['revenue'], rev[-1]['revenue']
+        d = (b - a) / a * 100 if a else 0
+        arah = f"naik {d:.1f}%" if d >= 0 else f"turun {abs(d):.1f}%"
+        out['ov'] = f"Revenue ronde terakhir {arah} vs sebelumnya (≈{b:,.0f}). "
+    else:
+        out['ov'] = "Histori ronde masih sedikit. "
+    ap = sum(x['n'] for x in dec if x['aksi'] == 'approve')
+    rj = sum(x['n'] for x in dec if x['aksi'] == 'reject')
+    tot = ap + rj
+    if tot:
+        out['ov'] += f"Approval rate {ap/tot*100:.0f}% ({ap}/{tot}). " + (
+            "Konsisten — pertahankan parameter." if ap/tot >= 0.7 else
+            "Banyak ditolak — tinjau feasibilitas jual & margin kualitas.")
+
+    # --- Monitoring: site paling over-utilized (dari daily_stats) ---
+    util = _fetch("SELECT site, avg(util) a FROM coalblend_daily_stats GROUP BY site ORDER BY a DESC") \
+        if enabled() else None
+    if not util:
+        from statistics import mean
+        g = {}
+        for r in _gen_daily():
+            g.setdefault(r['site'], []).append(r['util'])
+        util = sorted(({'site': s, 'a': mean(v)} for s, v in g.items()), key=lambda x: -x['a'])
+    if util:
+        top = util[0]
+        pct = float(top['a']) * 100
+        out['mon'] = (f"Rata-rata utilisasi jetty tertinggi: {top['site']} {pct:.0f}% "
+                      + ("(OVER kapasitas) — jadwalkan tambahan tongkang / evaluasi kapasitas jetty."
+                         if pct > 100 else "— masih dalam kapasitas."))
+    if ves:
+        nx = ves[0]
+        out['mon'] = out.get('mon', '') + f" ETA terdekat: {nx['vessel_name']} ({nx.get('buyer','-')}) {str(nx.get('eta',''))[:16].replace('T',' ')}."
+
+    # --- Insight ---
+    out['ins'] = out.get('ov', '') + " Lihat tren harian & jadwal ETA di bawah untuk perencanaan pengapalan."
+
+    # --- Available Product / Blending / Revenue ---
+    if util:
+        low = min(util, key=lambda x: float(x['a']))
+        out['ap'] = (f"Utilisasi terendah: {low['site']} {float(low['a'])*100:.0f}% — headroom untuk "
+                     f"menaikkan pengapalan dari Site ini bila kualitasnya cocok.")
+    out['bp'] = ("Optimizer quality-safe aktif: brand CV rendah dijaga di atas garis reject, brand premium "
+                 "didorong ke CV maksimum. Perketat batas TS/Ash/Na2O di menu Constraints bila buyer minta lebih ketat.")
+    if len(rev) >= 3:
+        best = max(rev, key=lambda r: r['revenue'])
+        out['rv'] = f"Revenue tertinggi historis pada Ronde {best['round_no']} (≈{best['revenue']:,.0f}) — jadikan acuan target."
+    else:
+        out['rv'] = "Kumpulkan lebih banyak ronde untuk analisis target revenue."
+
+    # --- Constraints ---
+    over = [u['site'] for u in util if float(u['a']) > 1.0] if util else []
+    out['cons'] = (("Site over-utilisasi: " + ", ".join(over) + " — pertimbangkan naikkan kapasitas jetty. ") if over else "")
+    out['cons'] += "Rekomendasi: jaga CV min = reject + 50–100 kcal agar aman dari klaim buyer; set Ash/Na2O max sesuai spec kontrak."
+    out['_source'] = ins.get('source', '-')
+    return out

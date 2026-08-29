@@ -70,6 +70,8 @@ section{display:none}section.on{display:block}
 .tst.W{border-left-color:var(--a)}@keyframes tin{from{transform:translateY(12px);opacity:0}}
 .prev{font:700 9px 'IBM Plex Mono';padding:3px 9px;border-radius:12px;background:rgba(246,181,60,.14);color:#f6cf86;border:1px solid rgba(246,181,60,.4);letter-spacing:.06em}
 .note{background:var(--p2);border-left:3px solid var(--g);border-radius:0 9px 9px 0;padding:10px 13px;font-size:12.5px;margin-top:10px}
+.reco{background:rgba(107,155,209,.10);border:1px solid var(--l);border-left:3px solid var(--b);border-radius:0 10px 10px 0;padding:11px 14px;font-size:12.5px;margin:0 0 16px;line-height:1.55}
+.reco b.t{color:var(--b);font-family:'IBM Plex Mono';font-size:10.5px;letter-spacing:.04em}
 .note.r{border-color:var(--r)}.note.a2{border-color:var(--a)}.note.b2{border-color:var(--b)}
 .ax{font:9.5px 'IBM Plex Mono';fill:var(--m)}.bt{font:10px 'IBM Plex Mono';fill:var(--ink)}svg.sv{display:block;width:100%;height:auto}
 a.btn{background:var(--g);color:#ffffff;font:700 12px 'IBM Plex Sans';padding:8px 14px;border-radius:9px;text-decoration:none}
@@ -279,7 +281,17 @@ document.querySelectorAll('.nav a[data-s]').forEach(a=>a.onclick=e=>{e.preventDe
  if(a.dataset.s==='ins')loadInsights();});
 
 function mk(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg);}
-async function load(){ST=await (await fetch('/api/state')).json();renderAll();buildSliders();}
+async function load(){ST=await (await fetch('/api/state')).json();renderAll();buildSliders();loadReco();}
+// ===== REKOMENDASI AI per menu (dari histori DB) — disisipkan di atas tiap section =====
+async function loadReco(){
+ let d; try{ d=await (await fetch('/api/reco')).json(); }catch(e){ return; }
+ if(!d||d.error) return;
+ const map={ov:d.ov,mon:d.mon,ins:d.ins,ap:d.ap,bp:d.bp,rv:d.rv};
+ for(const sec in map){ const txt=map[sec]; if(!txt) continue;
+  const sc=document.getElementById(sec); if(!sc) continue;
+  let r=sc.querySelector(':scope > .reco'); if(!r){ r=document.createElement('div'); r.className='reco'; sc.insertBefore(r, sc.firstChild); }
+  r.innerHTML='<b class="t">💡 REKOMENDASI AI</b> · '+txt; }
+}
 function sol(){return ST.solution}
 
 function renderAll(){
@@ -288,7 +300,7 @@ function renderAll(){
  document.getElementById('k_rev').textContent=F(s.revenue);
  document.getElementById('k_ship').textContent=F(s.total_ship);
  document.getElementById('k_cap').textContent='/ kapasitas '+F(ST.total_capacity);
- document.getElementById('k_rej').textContent=B.filter(b=>s.brand_total[b]>0&&Math.abs(s.brand_cv[b]-ST.cv_min[b])<1).length;
+ document.getElementById('k_rej').textContent=B.filter(b=>s.brand_total[b]>0&&s.brand_cv[b]<=((ST.cv_reject||{})[b]??ST.cv_min[b])+1).length;
  document.getElementById('k_cs').textContent=F(S.reduce((t,x)=>t+s.closing[x.site],0));
  // balance table
  let h='<tr><th>Site</th><th>Opening Stock</th><th>CV</th><th>Coal Getting</th><th>CV</th><th>Coal Shipment</th><th>CV*</th><th>Closing Stock</th><th>CV</th><th>Status Closing</th></tr>';

@@ -103,9 +103,10 @@ def solve(C):
     sol['closing'] = {s: C['available'][s] - sol['site_ship'][s] for s in C['sites']}
     sol['total_ship'] = sum(sol['site_ship'].values())
 
-    # post-solve alerts
+    # post-solve alerts — bandingkan ke batas REJECT ASLI (bukan floor quality-safe)
     for b in C['brands']:
-        if sol['brand_total'][b] > 0 and abs(sol['brand_cv'][b] - C['cv_min'][b]) < 1:
+        rej = C.get('cv_reject', C['cv_min']).get(b, C['cv_min'][b])
+        if sol['brand_total'][b] > 0 and sol['brand_cv'][b] <= rej + 1:
             alerts.append(('WARNING', 'COMMERCIAL',
                            f'{b}: CV blend {sol["brand_cv"][b]:,.0f} tepat DI BATAS REJECT — zero margin kualitas, risiko klaim buyer.'))
     for s in C['sites']:

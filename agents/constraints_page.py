@@ -8,7 +8,7 @@ def _n(v):
     return '' if v is None else (f'{v:g}' if isinstance(v, float) else v)
 
 
-def render(settings, manifest, saved=False):
+def render(settings, manifest, saved=False, db_ok=None):
     brands, sites = manifest['brands'], manifest['sites']
     spec = manifest['brand_spec']
     cv, ts, ash, na2o = settings['cv'], settings['ts'], settings['ash'], settings['na2o']
@@ -48,7 +48,10 @@ def render(settings, manifest, saved=False):
                        f'<td>{num(f"jetty_min_{s}", pj.get("min"))}</td>'
                        f'<td>{num(f"jetty_max_{s}", pj.get("max"), w="90")}</td></tr>')
 
-    ok = ('<div class="ok">✓ Constraint tersimpan &amp; langsung dipakai optimizer. '
+    dbmsg = ('' if db_ok is None else
+             (' · <b>tercatat di Postgres</b> (tabel coalblend_constraints)' if db_ok else
+              ' · <span style="color:var(--r)">DB belum tersambung — tersimpan lokal saja (set DATABASE_URL)</span>'))
+    ok = (f'<div class="ok">✓ Constraint tersimpan &amp; langsung dipakai optimizer{dbmsg}. '
           'Jalankan ulang blending untuk melihat hasilnya.</div>' if saved else '')
     chk = 'checked' if settings.get('enabled') else ''
 
@@ -78,6 +81,8 @@ input:focus{{outline:none;border-color:var(--g)}}
 .fld{{display:flex;flex-direction:column;gap:4px}}.fld label{{font:9px 'IBM Plex Mono';color:var(--m);text-transform:uppercase;letter-spacing:.05em}}
 .ok{{color:var(--ok);font:600 12px 'IBM Plex Mono';margin:8px 0}}
 .note{{background:var(--p2);border-left:3px solid var(--g);border-radius:0 9px 9px 0;padding:10px 13px;font-size:12px;margin-bottom:10px}}
+.reco{{background:rgba(107,155,209,.10);border:1px solid var(--l);border-left:3px solid var(--b);border-radius:0 10px 10px 0;padding:11px 14px;font-size:12.5px;margin-bottom:12px;line-height:1.5}}
+.reco b.t{{color:var(--b);font-family:'IBM Plex Mono';font-size:11px}}
 .grid2{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}@media(max-width:840px){{.grid2{{grid-template-columns:1fr}}}}
 </style></head><body>
 <div class="hd"><h1>🎛️ Constraint Settings</h1>
@@ -88,6 +93,7 @@ input:focus{{outline:none;border-color:var(--g)}}
 {ok}
 <div class="note"><b>Quality-safe:</b> CV min default = batas reject + margin, jadi blending <b>tidak mepet garis reject</b>;
 brand CV tinggi didorong ke kualitas maksimum (quality reward). Longgarkan/perketat sesuai kebutuhan.</div>
+<div class="reco" id="reco"><b class="t">💡 REKOMENDASI AI</b> · memuat dari histori…</div>
 <form method="post" action="/constraints">
 <div class="card"><div class="row">
 <label style="display:flex;gap:7px;align-items:center;font-size:13px"><input type="checkbox" name="enabled" {chk}> Aktifkan constraint settings</label>
@@ -122,4 +128,5 @@ function tg(){{const t=document.documentElement.getAttribute('data-theme')==='li
  document.getElementById('tb').textContent=t==='light'?'☀️':'🌙';}}
 (function(){{let t='dark';try{{t=localStorage.getItem('cortex-theme')||'dark'}}catch(e){{}}
  document.documentElement.setAttribute('data-theme',t);document.getElementById('tb').textContent=t==='light'?'☀️':'🌙';}})();
+fetch('/api/reco').then(r=>r.json()).then(d=>{{if(d&&d.cons)document.getElementById('reco').innerHTML='<b class="t">💡 REKOMENDASI AI</b> · '+d.cons;}}).catch(()=>{{}});
 </script></body></html>"""
