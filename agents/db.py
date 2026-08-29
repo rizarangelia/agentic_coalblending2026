@@ -731,3 +731,39 @@ def reco(manifest):
     out['cons'] += "Rekomendasi: jaga CV min = reject + 50–100 kcal agar aman dari klaim buyer; set Ash/Na2O max sesuai spec kontrak."
     out['_source'] = ins.get('source', '-')
     return out
+
+
+def status(auto_init=True):
+    """Diagnostik koneksi DB untuk /api/dbstatus — cek reachable + daftar tabel coalblend_*
+    + jumlah baris. Bila terhubung tapi tabel belum ada, jalankan init() (buat + seed)."""
+    s = {'enabled': enabled(), 'connected': False, 'initialized': False, 'tables': {}, 'error': None}
+    if not enabled():
+        s['error'] = 'DATABASE_URL belum di-set di environment'
+        return s
+    conn = None
+    try:
+        conn = _connect()
+        with conn.cursor() as cur:
+            cur.execute('SELECT 1'); s['connected'] = True
+            cur.execute("SELECT table_name FROM information_schema.tables"
+                        " WHERE table_schema='public' AND table_name LIKE 'coalblend%' ORDER BY 1")
+            tabs = [r[0] for r in cur.fetchall()]
+        if not tabs and auto_init:
+            init(); s['initialized'] = True
+            conn2 = _connect()
+            with conn2.cursor() as cur:
+                cur.execute("SELECT table_name FROM information_schema.tables"
+                            " WHERE table_schema='public' AND table_name LIKE 'coalblend%' ORDER BY 1")
+                tabs = [r[0] for r in cur.fetchall()]
+            conn2.close()
+        with conn.cursor() as cur:
+            for t in tabs:
+                cur.execute('SELECT count(*) FROM ' + t); s['tables'][t] = cur.fetchone()[0]
+        return s
+    except Exception as e:
+        s['error'] = repr(e)
+        return s
+    finally:
+        if conn:
+            try: conn.close()
+            except Exception: pass

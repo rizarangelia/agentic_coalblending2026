@@ -399,6 +399,17 @@ def api_reco():
     if not logged_in(): return {'error': 'unauthorized'}, 401
     return db.reco(MANIFEST)
 
+@app.route('/api/dbstatus')
+def api_dbstatus():
+    """Cek apakah app terhubung & mengikuti Postgres. Buka di browser (perlu login):
+    https://<app>/api/dbstatus — connected:true + daftar tabel coalblend_* = Vercel ikut DB."""
+    if not logged_in(): return {'error': 'unauthorized — login dulu'}, 401
+    st = db.status()
+    dsn = db._dsn() or ''
+    import re
+    st['host'] = re.sub(r'^.*@', '', dsn).split('?')[0] if '@' in dsn else '-'  # host saja, tanpa kredensial
+    return st
+
 @app.route('/dashboard')
 def dashboard():
     if not logged_in(): return redirect('/')
