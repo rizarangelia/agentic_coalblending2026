@@ -59,7 +59,7 @@ def input_data():
     if not logged_in(): return redirect('/')
     if request.method == 'POST':
         files = {}
-        for key in ('opening_stock', 'coal_getting', 'demand_deal', 'plan_kapasitas'):
+        for key in ('opening_stock', 'coal_getting', 'demand_deal'):
             f = request.files.get(key)
             if f and f.filename:
                 files[key] = (f.read(), f.filename)
@@ -68,7 +68,7 @@ def input_data():
         f'<label>{k.replace("_"," ").title()} (.csv / .xlsx) '
         f'<a href="/template/{k}" download style="text-transform:none;color:#6b9bd1;font-weight:600">⬇ unduh template</a>'
         f'</label><input type="file" name="{k}">'
-        for k in ('opening_stock', 'coal_getting', 'demand_deal', 'plan_kapasitas'))
+        for k in ('opening_stock', 'coal_getting', 'demand_deal'))
     sites = ', '.join(MANIFEST['sites'])
     body = f"""<h1>Input Data Bulanan</h1><div class="sub">User: {session['user']} · cadence KB-12 (tgl 1 &amp; tgl 3–5) · <a href="/logout">logout</a></div>
     <div class="sub" style="background:#262523;border:1px solid #37342f;border-radius:9px;padding:10px 12px;margin-bottom:14px;text-transform:none;line-height:1.5">
@@ -87,7 +87,7 @@ def template(key):
         import io, zipfile
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
-            for k in keys:
+            for k in ('opening_stock', 'coal_getting', 'demand_deal'):
                 p = ROOT / f'fixtures/{k}_simulasi.csv'
                 if p.exists(): z.writestr(f'{k}_template.csv', p.read_text(encoding='utf-8'))
         return Response(buf.getvalue(), mimetype='application/zip',
@@ -181,14 +181,20 @@ def _save_calib(c):
 def run_pipeline(files, sumber_demand=None):
     # fallback fixtures untuk demo/validasi
     use_fixtures = not files
+    n_upload = len(files)  # jumlah file yang benar-benar diupload user (sebelum inject kapasitas)
     if not files:
         fx = ROOT / 'fixtures'
         files = {k: ((fx / f'{k}_simulasi.csv').read_bytes(), f'{k}_simulasi.csv')
                  for k in ('opening_stock', 'coal_getting', 'demand_deal', 'plan_kapasitas')}
+    # plan_kapasitas tidak lagi di-upload di halaman Input — kapasitas jetty bersumber dari
+    # config/Constraint Settings. Selalu sediakan dari baseline config agar constraint.build tak gagal.
+    if 'plan_kapasitas' not in files:
+        files['plan_kapasitas'] = ((ROOT / 'fixtures/plan_kapasitas_simulasi.csv').read_bytes(),
+                                   'plan_kapasitas_config.csv')
     st = orchestrator.run(files, MANIFEST, session.get('user', 'tester'),
                           ingestion, constraint, optimizer, settings=SETTINGS)   # state graph + lineage + trace
     session['run_id'] = st['run_id']
-    _sumber = sumber_demand or ('fixtures simulasi' if use_fixtures else f'{len(files)} file input')
+    _sumber = sumber_demand or ('fixtures simulasi' if use_fixtures else f'{n_upload} file input')
     # PERSIST: tiap upload masuk DB (defaultdb) — Metabase baca tabel yang sama
     db.record_upload(st['run_id'], session.get('user', 'tester'), _sumber,
                      st.get('lineage'), st.get('data'))
@@ -202,7 +208,7 @@ def run_pipeline(files, sumber_demand=None):
     # persist state utk /dashboard, /review (revisit) & /api
     (DATA_DIR / 'output/last_state.json').write_text(json.dumps({
         'user': session.get('user', 'tester'), 'run_id': st['run_id'],
-        'sumber': 'fixtures simulasi' if use_fixtures else f'{len(files)} file input',
+        'sumber': 'fixtures simulasi' if use_fixtures else f'{n_upload} file input',
         'data': st.get('data'), 'alerts': st['alerts'],
     }, ensure_ascii=False))
     # simpan run untuk endpoint keputusan (tanpa objek sol penuh: cukup ringkasan auditabel)
@@ -216,7 +222,7 @@ def run_pipeline(files, sumber_demand=None):
     rounds = _rounds()
     rounds.append({'no': len(rounds) + 1, 'ts': _dt.datetime.now().isoformat(timespec='seconds'),
                    'user': session.get('user', 'tester'), 'run_id': st['run_id'],
-                   'sumber': sumber_demand or ('fixtures simulasi' if use_fixtures else f'{len(files)} file input'),
+                   'sumber': sumber_demand or ('fixtures simulasi' if use_fixtures else f'{n_upload} file input'),
                    'opsi': {sc['id']: {'nama': sc['nama'], 'revenue': sc['revenue']} for sc in scenarios},
                    'chosen': None})
     _rounds_save(rounds)
