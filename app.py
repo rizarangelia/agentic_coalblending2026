@@ -466,6 +466,40 @@ def api_dbstatus():
     st['host'] = re.sub(r'^.*@', '', dsn).split('?')[0] if '@' in dsn else '-'  # host saja, tanpa kredensial
     return st
 
+@app.route('/api/selftest')
+def api_selftest():
+    """Diagnostik solver/runtime untuk debug deploy (login diperlukan). Tanpa rahasia —
+    lapor versi PuLP, solver tersedia, status highspy, dan traceback asli dari solve."""
+    if not logged_in(): return {'error': 'unauthorized — login dulu'}, 401
+    import sys, traceback as _tb
+    out = {'python': sys.version.split()[0]}
+    try:
+        import pulp
+        out['pulp_version'] = pulp.__version__
+        try: out['solvers_available'] = pulp.listSolvers(onlyAvailable=True)
+        except Exception as e: out['solvers_available_error'] = repr(e)
+    except Exception as e:
+        out['pulp_import_error'] = repr(e)
+    try:
+        import highspy  # noqa
+        out['highspy'] = 'ok'
+    except Exception as e:
+        out['highspy_error'] = repr(e)
+    try:
+        from agents import optimizer
+        s = optimizer._solver()
+        out['solver_picked'] = type(s).__name__ if s else None
+    except Exception:
+        out['solver_picked_error'] = _tb.format_exc().splitlines()[-1]
+    try:
+        st = _last_state()
+        sol, C, alerts = _solve_from(st['data'])
+        out['solve'] = {'status': 'ok', 'revenue': (sol or {}).get('revenue'),
+                        'sumber': st.get('sumber')}
+    except Exception:
+        out['solve_error'] = _tb.format_exc()
+    return out
+
 @app.route('/dashboard')
 def dashboard():
     if not logged_in(): return redirect('/')
