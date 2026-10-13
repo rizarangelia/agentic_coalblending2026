@@ -531,18 +531,30 @@ def api_state():
     if not logged_in(): return {'error': 'unauthorized'}, 401
     st = _last_state()
     sol, C, alerts = _solve_from(st['data'])
+    # ROBUST: bila infeasible dengan Constraint Settings (mis. Quality margin terlalu ketat
+    # untuk data ini), fallback ke solve BASELINE tanpa settings agar dashboard tetap tampil.
+    if sol is None:
+        baseC, _ba = constraint.build(MANIFEST, st['data'])
+        bsol, _ba2 = optimizer.solve(baseC)
+        if bsol is not None:
+            sol, C = bsol, baseC
+            alerts = (alerts or []) + [('WARNING', 'CONSTRAINT',
+                'Constraint Settings saat ini membuat solve INFEASIBLE untuk data ini — '
+                'menampilkan solusi BASELINE (tanpa settings). Longgarkan Quality margin / CV min '
+                'di menu Constraint Settings lalu jalankan ulang.')]
     # SELARAS OPSI TERPILIH: bila validator sudah approve opsi (A/B/C) utk run ini,
     # tampilkan solusi opsi tsb (CV blending/kontrak selaras), bukan solve baseline.
     opsi_meta = None
     ch = _chosen()
-    if ch and ch.get('run_id') == st.get('run_id') and ch.get('opsi'):
+    if sol is not None and ch and ch.get('run_id') == st.get('run_id') and ch.get('opsi'):
         scen = optimizer.solve_scenarios(C)
         csc = next((s for s in scen if s['id'] == ch['opsi'] and s.get('sol')), None)
         if csc:
             sol = csc['sol']
             opsi_meta = {'opsi': ch['opsi'], 'nama': csc.get('nama') or ch.get('nama'),
                          'validator': ch.get('validator')}
-    sol['deal'] = C['deal']
+    if sol is not None:
+        sol['deal'] = C['deal']
     sites = [{'site': s, 'opening': st['data']['opening_stock'][s]['volume_mt'],
               'cv_open': st['data']['opening_stock'][s]['cv_gar'],
               'cg': st['data']['coal_getting'][s]['volume_mt'],
