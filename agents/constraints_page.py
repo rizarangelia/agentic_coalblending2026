@@ -91,9 +91,6 @@ input:focus{{outline:none;border-color:var(--g)}}
 <a href="/dashboard" style="font-weight:600">← Dashboard</a></div>
 <div class="sub" style="margin-bottom:12px">Atur batas <b>min/max</b> Capacity · CV · TS · Ash · Na2O per brand + assay per Site. Disimpan &amp; langsung dipakai optimizer.</div>
 {ok}
-<div class="note"><b>Quality-safe:</b> CV min default = batas reject + margin, jadi blending <b>tidak mepet garis reject</b>;
-brand CV tinggi didorong ke kualitas maksimum (quality reward). Longgarkan/perketat sesuai kebutuhan.</div>
-<div class="reco" id="reco"><b class="t">💡 REKOMENDASI AI</b> · memuat dari histori…</div>
 <form method="post" action="/constraints">
 <div class="card"><div class="row">
 <label style="display:flex;gap:7px;align-items:center;font-size:13px"><input type="checkbox" name="enabled" {chk}> Aktifkan constraint settings</label>
@@ -128,5 +125,4 @@ function tg(){{const t=document.documentElement.getAttribute('data-theme')==='li
  document.getElementById('tb').textContent=t==='light'?'☀️':'🌙';}}
 (function(){{let t='dark';try{{t=localStorage.getItem('cortex-theme')||'dark'}}catch(e){{}}
  document.documentElement.setAttribute('data-theme',t);document.getElementById('tb').textContent=t==='light'?'☀️':'🌙';}})();
-fetch('/api/reco').then(r=>r.json()).then(d=>{{if(d&&d.cons)document.getElementById('reco').innerHTML='<b class="t">💡 REKOMENDASI AI</b> · '+d.cons;}}).catch(()=>{{}});
 </script></body></html>"""
