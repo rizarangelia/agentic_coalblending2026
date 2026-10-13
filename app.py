@@ -491,13 +491,48 @@ def api_selftest():
         out['solver_picked'] = type(s).__name__ if s else None
     except Exception:
         out['solver_picked_error'] = _tb.format_exc().splitlines()[-1]
+    def _probe(tag, data, settings):
+        try:
+            C, a = constraint.build(MANIFEST, data, settings=settings)
+            crit = [m for s, c, m in a if s == 'CRITICAL']
+            sol, a2 = optimizer.solve(C)
+            crit += [m for s, c, m in (a2 or []) if s == 'CRITICAL']
+            return {'feasible': sol is not None, 'revenue': (sol or {}).get('revenue'),
+                    'critical': crit[:4]}
+        except Exception:
+            return {'error': _tb.format_exc().splitlines()[-1]}
     try:
         st = _last_state()
-        sol, C, alerts = _solve_from(st['data'])
-        out['solve'] = {'status': 'ok', 'revenue': (sol or {}).get('revenue'),
-                        'sumber': st.get('sumber')}
+        d = st['data']
+        out['sumber'] = st.get('sumber')
+        # sanity data (sumber infeasibility aritmetis)
+        try:
+            sites = MANIFEST['sites']; brands = MANIFEST['brands']
+            avail = {s: d['opening_stock'][s]['volume_mt'] + d['coal_getting'][s]['volume_mt'] for s in sites}
+            total_deal = sum(d['demand_deal'][b]['volume_deal_mt'] for b in brands)
+            total_cap = sum(d['plan_kapasitas'][s]['kapasitas_mt'] for s in sites)
+            csmin = MANIFEST['closing_stock_band_simulasi']
+            bad = [f"{s}: avail {avail[s]:,.0f} < cs_min {csmin[s]['min']:,.0f}" for s in sites if avail[s] < csmin[s]['min']]
+            out['sanity'] = {'total_deal': round(total_deal), 'total_capacity': round(total_cap),
+                             'deal_gt_cap': total_deal > total_cap,
+                             'sites_avail_lt_csmin': bad,
+                             'keys_ok': {'sites': sorted(d.get('opening_stock', {})) == sorted(sites),
+                                         'brands': sorted(d.get('demand_deal', {})) == sorted(brands)}}
+        except Exception:
+            out['sanity_error'] = _tb.format_exc().splitlines()[-1]
+        out['solve_with_settings'] = _probe('settings', d, SETTINGS)
+        out['solve_baseline'] = _probe('baseline', d, None)
     except Exception:
-        out['solve_error'] = _tb.format_exc()
+        out['state_error'] = _tb.format_exc()
+    # kontrol: fixtures (data bersih) harus selalu feasible
+    try:
+        fx = ROOT / 'fixtures'
+        files = {k: ((fx / f'{k}_simulasi.csv').read_bytes(), f'{k}.csv')
+                 for k in ('opening_stock', 'coal_getting', 'demand_deal', 'plan_kapasitas')}
+        fdata, _ = ingestion.ingest(files, MANIFEST)
+        out['solve_fixtures'] = _probe('fixtures', fdata, None)
+    except Exception:
+        out['fixtures_error'] = _tb.format_exc().splitlines()[-1]
     return out
 
 @app.route('/dashboard')
