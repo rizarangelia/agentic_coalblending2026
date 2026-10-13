@@ -2,7 +2,8 @@
 # Python 3.10+ direkomendasikan (teruji di 3.12)
 
 Flask>=3.0          # web app: login, input data, review HITL, endpoint keputusan
-PuLP>=2.8           # LP solver (menyertakan binary CBC bawaan — tidak perlu instal solver terpisah)
+PuLP==2.9.0         # LP solver. Dipin: v4 breaking (hapus lowBound & CBC bawaan). 2.9 punya API lama + HiGHS in-process.
+highspy>=1.7        # solver HiGHS in-process untuk PuLP — WAJIB (PuLP tak menariknya otomatis); jalan di serverless/Vercel tanpa subprocess binary
 openpyxl>=3.1       # membaca input .xlsx (CSV dibaca modul standar, tanpa dependensi)
 requests>=2.31      # client HTTP untuk agents/marine_tracking.py (Data Docked vessel API)
 python-dotenv>=1.0  # baca .env (DATABASE_URL, DATADOCKED_API_KEY) saat dev lokal

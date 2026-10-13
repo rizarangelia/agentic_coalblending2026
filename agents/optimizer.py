@@ -1,8 +1,24 @@
 """Agent 3 — Blending Generator (The Core).
-LP deterministik (PuLP/CBC). LLM tidak pernah menghasilkan angka — hanya menarasikan hasil.
-Fitur kunci: infeasibility DIAGNOSER (elastic re-solve) -> relaksasi minimum per constraint.
+LP deterministik (PuLP). LLM tidak pernah menghasilkan angka — hanya menarasikan hasil.
+Solver: HiGHS in-process bila tersedia (jalan di serverless/Vercel tanpa subprocess binary);
+fallback CBC. Fitur kunci: infeasibility DIAGNOSER (elastic re-solve) -> relaksasi minimum.
 """
 import pulp
+
+
+def _solver():
+    """Solver LP yang tersedia. PuLP >=4 melepas CBC bawaan & memakai HiGHS (in-process,
+    jalan di Lambda/Vercel tanpa subprocess). PuLP <4 pakai CBC. None = default PuLP."""
+    for name, kw in (('HiGHS', {'msg': False}), ('PULP_CBC_CMD', {'msg': 0})):
+        cls = getattr(pulp, name, None)
+        if cls is not None:
+            try:
+                s = cls(**kw)
+                if s.available():
+                    return s
+            except Exception:
+                continue
+    return None
 
 def _base_model(C, elastic=False):
     sites, brands = C['sites'], C['brands']
@@ -58,13 +74,13 @@ def solve(C):
     alerts = []
     m, x, _, revenue = _base_model(C)
     m += revenue
-    m.solve(pulp.PULP_CBC_CMD(msg=0))
+    m.solve(_solver())
     if pulp.LpStatus[m.status] != 'Optimal':
         # DIAGNOSER: minimasi total slack -> relaksasi minimum yang membuat feasible
         md, _, slack, _ = _base_model(C, elastic=True)
         md.sense = pulp.LpMinimize
         md += pulp.lpSum(slack.values())
-        md.solve(pulp.PULP_CBC_CMD(msg=0))
+        md.solve(_solver())
         diag = sorted(((n, v.value()) for n, v in slack.items() if v.value() and v.value() > 1e-6),
                       key=lambda t: -t[1])
         for n, v in diag:
@@ -79,7 +95,9 @@ def solve(C):
     # shadow prices (dual values) — nilai marginal konstrain, gratis dari LP
     def _pi(name):
         k = name.replace(' ', '_')
-        return round(m.constraints[k].pi, 4) if k in m.constraints else None
+        c = m.constraints.get(k)
+        pi = getattr(c, 'pi', None) if c is not None else None   # HiGHS kadang tak isi dual → None-safe
+        return round(pi, 4) if pi is not None else None
     sol['shadow'] = {
         'total_capacity': _pi('M4'),
         'deal': {b: _pi(f'M1_{b}') for b in C['brands']},
