@@ -26,6 +26,19 @@ th{font-size:10px;color:var(--mut);text-transform:uppercase}th:first-child,td:fi
 
 def _fmt(v): return f'{v:,.0f}'
 
+
+def _n_unhealthy(C, sol, tol=1.0):
+    """Jumlah site yang closing stock-nya di LUAR rentang sehat 20–80% band [cs_min,cs_max].
+    Dipakai kolom perbandingan Opsi C (Normalisasi Stok): 0 = semua site sehat."""
+    n = 0
+    for s in C['sites']:
+        lo, hi = C['cs_min'][s], C['cs_max'][s]
+        rng = hi - lo
+        c = sol['closing'][s]
+        if c < lo + 0.20 * rng - tol or c > lo + 0.80 * rng + tol:
+            n += 1
+    return n
+
 def render(sol, C, alerts, meta=''):
     a_html = ''.join(
         f'<div class="al"><span class="tag" style="background:{SEV[s][0]}">{SEV[s][1]}</span>'
@@ -103,7 +116,7 @@ def render_review(scenarios, C, pre_alerts, calib=None, meta=''):
                 f"AI menempatkannya sebagai kandidat utama.</div></div>")
 
     comp = ('<table><tr><th>Opsi</th><th>Skenario</th><th>Revenue</th><th>&Delta; vs Baseline</th>'
-            '<th>Total Ship</th><th>Brand di Reject</th><th>Closing Gurimbang</th><th>Status</th></tr>')
+            '<th>Total Ship</th><th>Brand di Reject</th><th>Stok di luar 20–80%</th><th>Status</th></tr>')
     cards = ''
     for sc in scenarios:
         if sc['sol'] is None:
@@ -117,7 +130,8 @@ def render_review(scenarios, C, pre_alerts, calib=None, meta=''):
         comp += (f"<tr><td><b>{sc['id']}</b></td><td>{sc['nama']}</td><td><b>{s['revenue']:,.0f}</b></td>"
                  f"<td class='{'pos' if sc['delta']>=0 else 'neg'}'>{sc['delta']:+,.0f}</td>"
                  f"<td>{_fmt(s['total_ship'])}</td><td class='{'neg' if sc['n_reject'] else 'pos'}'>{sc['n_reject']}</td>"
-                 f"<td>{_fmt(s['closing']['Gurimbang'])}</td><td class='pos'>Optimal</td></tr>")
+                 f"<td class='{'pos' if _n_unhealthy(C, s) == 0 else 'neg'}'>{_n_unhealthy(C, s)}</td>"
+                 f"<td class='pos'>Optimal</td></tr>")
         brand = ''.join(f"<tr><td>{b}</td><td>{_fmt(C['deal'][b])}</td><td>{_fmt(s['optimize'][b])}</td>"
                         f"<td><b>{_fmt(s['brand_total'][b])}</b></td><td>{s['brand_cv'][b]:,.0f}</td>"
                         f"<td>{s['brand_cv'][b]-C['cv_min'][b]:+,.0f}</td><td>{_fmt(s['brand_revenue'][b])}</td></tr>"

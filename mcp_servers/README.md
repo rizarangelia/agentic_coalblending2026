@@ -26,7 +26,7 @@ dilewatkan ke `coalblend-blend` untuk dioptimasi. Tools:
 - `get_baseline_info()` — angka baseline tervalidasi, untuk sanity-check hasil.
 - `solve_single(ingested_data, overrides=None)` — 1x solve Model 1-9 (skenario Max Revenue murni).
 - `run_blending(ingested_data, overrides=None)` — 3 skenario HITL (sama seperti halaman `/review`
-  di app.py): **A** Max Revenue, **B** Quality-Safe (buffer CV +25), **C** Evakuasi Stok Site Kritis.
+  di app.py): **A** Max Revenue, **B** Quality-Safe (buffer CV +25), **C** Normalisasi Stok Antar-Site (closing 20–80% band).
   `overrides` opsional: `{"deal": {brand: v}, "cs_min": {site: v}, "cs_max": {site: v}}`.
 
 Kalau solver infeasible, `agents/optimizer.py` otomatis mendiagnosis relaksasi minimum yang

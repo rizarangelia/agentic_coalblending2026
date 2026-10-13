@@ -73,7 +73,7 @@ def solve_single(ingested_data: dict, overrides: dict = None) -> dict:
 def run_blending(ingested_data: dict, overrides: dict = None) -> dict:
     """Solve 3 skenario kanonik untuk review HITL (Human-in-the-Loop), identik dengan
     alur /review di app.py:
-      A Max Revenue (Baseline) · B Quality-Safe (buffer CV +25) · C Evakuasi Stok Site Kritis.
+      A Max Revenue (Baseline) · B Quality-Safe (buffer CV +25) · C Normalisasi Stok Antar-Site (closing 20–80% band).
 
     ingested_data: dict hasil field "data" dari ingest_coal_data /
         ingest_coal_data_from_workbook (harus status VALID).

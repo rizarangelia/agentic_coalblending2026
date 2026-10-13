@@ -497,7 +497,7 @@ def _gen_runs(n=8):
     for i in range(n):
         rid = f'seed{i:02d}'; ts = now - datetime.timedelta(days=(n - i))
         base = _BASELINE * (0.97 + _rnd('rev', i) * 0.06)
-        scen = [('A', 'Max Revenue', 1.0), ('B', 'Quality-Safe', 0.995), ('C', 'Evakuasi', 0.988)]
+        scen = [('A', 'Max Revenue', 1.0), ('B', 'Quality-Safe', 0.995), ('C', 'Normalisasi Stok', 0.988)]
         out.append({'run_id': rid, 'round_no': i + 1, 'ts': ts,
                     'scenarios': [{'scenario_id': s, 'nama': nm, 'revenue': round(base * m)} for s, nm, m in scen]})
     return out

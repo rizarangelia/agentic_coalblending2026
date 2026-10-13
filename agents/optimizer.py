@@ -126,7 +126,7 @@ import copy
 
 def solve_scenarios(C):
     """3 opsi kanonik — SATU tuas per opsi agar trade-off teratribusi bersih.
-    A Max Revenue (murni) · B Quality-Safe (cv_min +25 saja) · C Evakuasi (closing GMO/BMO3 = min).
+    A Max Revenue (murni) · B Quality-Safe (cv_min +25 saja) · C Normalisasi Stok (closing tiap site 20–80% band).
     Angka 100% dari solver."""
     out = []
 
@@ -144,11 +144,14 @@ def solve_scenarios(C):
         'Satu tuas: CV blend minimal +25 di atas reject. Margin klaim buyer; revenue sedikit turun.', C2)
 
     C3 = copy.deepcopy(C)
-    for s in ('Gurimbang', 'BMO3'):
-        if s in C3['cs_max']:
-            C3['cs_max'][s] = C3['cs_min'][s]
-    run('C', 'Evakuasi Stok Site Kritis',
-        'Satu tuas: closing Gurimbang & BMO 3 dipaksa ke MIN band (konteks reclaim tunnel).', C3)
+    for s in C3['sites']:
+        lo, hi = C3['cs_min'][s], C3['cs_max'][s]
+        rng = hi - lo
+        C3['cs_min'][s] = lo + 0.20 * rng   # lantai sehat: closing tak kurang dari 20% band
+        C3['cs_max'][s] = lo + 0.80 * rng   # plafon sehat: closing tak lebih dari 80% band
+    run('C', 'Normalisasi Stok Antar-Site',
+        'Satu tuas: closing tiap site dijaga di 20–80% band (stok sehat) — '
+        'tidak ada site kebanyakan (mentok MAX) atau kedikitan (mentok MIN).', C3)
 
     base = out[0]['revenue']
     for sc in out:
