@@ -432,9 +432,14 @@ def constraints():
             a = s['site_assay'].setdefault(site, {})
             for dim in ('ts', 'ash', 'na2o'):
                 a[dim] = fnum(f'assay_{dim}_{site}', a.get(dim))
+        _margin = s.get('quality_margin_cv') or 0   # buffer global: CV min minimal = reject + margin
         for b in MANIFEST['brands']:
-            s['cv'].setdefault(b, {})['min'] = fnum(f'cv_min_{b}', s['cv'][b].get('min'))
-            s['cv'][b]['max'] = fnum(f'cv_max_{b}', s['cv'][b].get('max'))
+            spec_b = MANIFEST['brand_spec'][b]
+            s['cv'].setdefault(b, {})['max'] = fnum(f'cv_max_{b}', s['cv'][b].get('max'))
+            _mn = fnum(f'cv_min_{b}', s['cv'][b].get('min')) or spec_b['cv_min_reject']
+            _mx = s['cv'][b]['max'] or spec_b['cv_max_typical']
+            # margin berlaku global; kolom per-brand hanya menaikkan (memperketat) di atas buffer
+            s['cv'][b]['min'] = min(round(max(float(_mn), spec_b['cv_min_reject'] + float(_margin))), _mx - 5)
             for dim in ('ts', 'ash', 'na2o'):
                 d = s[dim].setdefault(b, {})
                 d['min'] = fnum(f'{dim}_min_{b}', 0) or 0

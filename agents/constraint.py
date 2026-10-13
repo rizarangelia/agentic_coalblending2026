@@ -60,13 +60,17 @@ def build(manifest: dict, data: dict, overrides: dict = None, settings: dict = N
     # --- settings menu Constraints (opsional): quality-safe CV + TS/Ash/Na2O + capacity ---
     if settings and settings.get('enabled'):
         cvs = settings.get('cv') or {}
+        margin = float(settings.get('quality_margin_cv') or 0)   # buffer global: CV min >= reject + margin
         for b in brands:
-            if b in cvs:
-                # jaga feasibility: cv_min di antara reject dan cv_max
-                mn = float(cvs[b].get('min', C['cv_min'][b]))
-                mx = float(cvs[b].get('max', C['cv_max'][b]))
-                C['cv_min'][b] = max(spec[b]['cv_min_reject'], min(mn, mx - 5))
-                C['cv_max'][b] = mx
+            rej = spec[b]['cv_min_reject']
+            mx = float((cvs.get(b) or {}).get('max', C['cv_max'][b]))
+            floor = rej + margin                                 # buffer berlaku untuk SEMUA brand
+            tbl = (cvs.get(b) or {}).get('min')                  # kolom per-brand boleh memperketat lebih tinggi
+            if tbl is not None:
+                floor = max(floor, float(tbl))
+            # jaga feasibility: cv_min di antara reject dan (cv_max - 5)
+            C['cv_min'][b] = max(rej, min(floor, mx - 5))
+            C['cv_max'][b] = mx
         assay = settings.get('site_assay') or {}
         for dim in ('ts', 'ash', 'na2o'):
             if all(dim in (assay.get(s) or {}) for s in sites):
