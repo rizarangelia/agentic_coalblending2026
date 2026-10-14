@@ -51,7 +51,7 @@ def render(settings, manifest, saved=False, db_ok=None):
     dbmsg = ('' if db_ok is None else
              (' · <b>tercatat di Postgres</b> (tabel coalblend_constraints)' if db_ok else
               ' · <span style="color:var(--r)">DB belum tersambung — tersimpan lokal saja (set DATABASE_URL)</span>'))
-    ok = (f'<div class="ok">✓ Constraint tersimpan &amp; langsung dipakai optimizer{dbmsg}. '
+    ok = (f'<div class="okbox" id="okmsg">✓ Constraint tersimpan &amp; langsung dipakai optimizer{dbmsg}. '
           'Jalankan ulang blending untuk melihat hasilnya.</div>' if saved else '')
     chk = 'checked' if settings.get('enabled') else ''
 
@@ -80,6 +80,9 @@ input:focus{{outline:none;border-color:var(--g)}}
 .row{{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}}
 .fld{{display:flex;flex-direction:column;gap:4px}}.fld label{{font:9px 'IBM Plex Mono';color:var(--m);text-transform:uppercase;letter-spacing:.05em}}
 .ok{{color:var(--ok);font:600 12px 'IBM Plex Mono';margin:8px 0}}
+.okbox{{background:rgba(125,155,118,.15);border:1px solid var(--ok);border-left:4px solid var(--ok);color:var(--ok);font:700 13px 'IBM Plex Sans';padding:11px 14px;border-radius:0 10px 10px 0;margin:8px 0 14px;animation:okflash 1.6s ease}}
+@keyframes okflash{{0%{{background:rgba(125,155,118,.5)}}100%{{background:rgba(125,155,118,.15)}}}}
+.btn:disabled{{opacity:.7;cursor:progress}}
 .note{{background:var(--p2);border-left:3px solid var(--g);border-radius:0 9px 9px 0;padding:10px 13px;font-size:12px;margin-bottom:10px}}
 .reco{{background:rgba(107,155,209,.10);border:1px solid var(--l);border-left:3px solid var(--b);border-radius:0 10px 10px 0;padding:11px 14px;font-size:12.5px;margin-bottom:12px;line-height:1.5}}
 .reco b.t{{color:var(--b);font-family:'IBM Plex Mono';font-size:11px}}
@@ -91,7 +94,7 @@ input:focus{{outline:none;border-color:var(--g)}}
 <a href="/dashboard" style="font-weight:600">← Dashboard</a></div>
 <div class="sub" style="margin-bottom:12px">Atur batas <b>min/max</b> Capacity · CV · TS · Ash · Na2O per brand + assay per Site. Disimpan &amp; langsung dipakai optimizer.</div>
 {ok}
-<form method="post" action="/constraints">
+<form method="post" action="/constraints" id="cform">
 <div class="card"><div class="row">
 <label style="display:flex;gap:7px;align-items:center;font-size:13px"><input type="checkbox" name="enabled" {chk}> Aktifkan constraint settings</label>
 <div class="fld"><label>Quality margin CV (kcal)</label>{num('qmargin', settings.get('quality_margin_cv'))}</div>
@@ -125,4 +128,11 @@ function tg(){{const t=document.documentElement.getAttribute('data-theme')==='li
  document.getElementById('tb').textContent=t==='light'?'☀️':'🌙';}}
 (function(){{let t='dark';try{{t=localStorage.getItem('cortex-theme')||'dark'}}catch(e){{}}
  document.documentElement.setAttribute('data-theme',t);document.getElementById('tb').textContent=t==='light'?'☀️':'🌙';}})();
+// feedback simpan: tombol jadi "Menyimpan…" + disabled saat submit (hindari kesan menggantung)
+(function(){{var f=document.getElementById('cform'); if(!f) return;
+ f.addEventListener('submit',function(){{
+   f.querySelectorAll('button[type=submit]').forEach(function(b){{b.disabled=true; b.textContent='⏳ Menyimpan…';}});
+ }});}})();
+// bila baru tersimpan, pastikan banner terlihat (scroll ke atas)
+(function(){{var m=document.getElementById('okmsg'); if(m){{window.scrollTo({{top:0,behavior:'smooth'}});}}}})();
 </script></body></html>"""

@@ -487,7 +487,7 @@ def constraints():
         cset.save(s)                                   # simpan file JSON (fallback lokal)
         db_ok = db.save_constraints(s, session['user'])  # UPDATE tabel Postgres (Aiven)
         _cycle_bump_if_changed(s)                       # constraint berubah → CYCLE baru (iterasi reset)
-        SETTINGS = cset.load(MANIFEST)                  # reload (dari DB bila terhubung)
+        SETTINGS = s                                    # pakai hasil simpan di memori — hindari 1 round-trip DB reload (lebih cepat)
         return constraints_page.render(SETTINGS, MANIFEST, saved=True, db_ok=db_ok)
     return constraints_page.render(SETTINGS, MANIFEST)
 
