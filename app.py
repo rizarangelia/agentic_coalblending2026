@@ -454,7 +454,9 @@ def constraints():
     if not logged_in(): return redirect('/')
     from agents import constraints_page
     if request.method == 'POST':
-        s = cset.load(MANIFEST); f = request.form
+        # pakai salinan setting di memori sebagai basis (hindari round-trip DB baca saat simpan);
+        # form membawa semua field, jadi tiap nilai di-override dari form di bawah.
+        s = json.loads(json.dumps(SETTINGS)); f = request.form
         def fnum(key, default=None):
             v = (f.get(key) or '').strip()
             if v == '': return default

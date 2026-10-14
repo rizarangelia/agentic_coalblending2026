@@ -635,6 +635,9 @@ def save_constraints(settings, username='planner'):
         with conn.cursor() as cur:
             cur.execute("INSERT INTO coalblend_constraints (username, payload) VALUES (%s,%s::jsonb)",
                         (username, payload))
+            # IDEMPOTEN + KONSISTEN: ganti seluruh param flat user ini dalam SATU transaksi
+            # (DELETE lalu INSERT) — tidak menumpuk duplikat, dan atomik (rollback bila gagal).
+            cur.execute("DELETE FROM coalblend_constraint_params WHERE username=%s", (username,))
             rows = [(username, 'global', '-', 'quality_margin_cv', settings.get('quality_margin_cv')),
                     (username, 'global', '-', 'quality_reward', settings.get('quality_reward'))]
             cap = settings.get('capacity') or {}
