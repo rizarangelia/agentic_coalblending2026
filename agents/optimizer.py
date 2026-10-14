@@ -55,7 +55,10 @@ def _base_model(C, elastic=False):
         ship = pulp.lpSum(x[s, b] for b in brands)
         m += ship <= C['available'][s], f'M3_{s}'
         m += C['available'][s] - ship + (S(f'M8 csmin {s}') if elastic else 0) >= C['cs_min'][s], f'M8_{s}'
-        m += C['available'][s] - ship <= C['cs_max'][s] + (S(f'M9 csmax {s}') if elastic else 0), f'M9_{s}'
+        # M9 closing <= cs_max: DILEWATI bila planner men-set Max total shipment (field menang —
+        # stok boleh > band MAX, ditandai warning post-solve), supaya cap shipment tidak diblok backend.
+        if not C.get('cap_total_max'):
+            m += C['available'][s] - ship <= C['cs_max'][s] + (S(f'M9 csmax {s}') if elastic else 0), f'M9_{s}'
     grand = pulp.lpSum(x[s, b] for s in sites for b in brands)
     cap_max = C.get('cap_total_max', C['total_capacity'])
     m += grand <= cap_max + (S('M4 total') if elastic else 0), 'M4'
@@ -132,7 +135,11 @@ def solve(C):
             alerts.append(('WARNING', 'LOGISTIK',
                            f'{s}: blending {sol["site_ship"][s]:,.0f} melebihi kapasitas jetty {C["jetty_capacity"][s]:,.0f} '
                            f'(Model 4 total-only; verifikasi outloading site ini).'))
-        if abs(sol['closing'][s] - C['cs_max'][s]) < 1:
+        if sol['closing'][s] > C['cs_max'][s] + 1:
+            alerts.append(('WARNING', 'STOCK',
+                           f'{s}: closing stock {sol["closing"][s]:,.0f} MELEBIHI band MAX {C["cs_max"][s]:,.0f} '
+                           f'(karena Max total shipment membatasi pengapalan — stok ditahan sesuai field).'))
+        elif abs(sol['closing'][s] - C['cs_max'][s]) < 1:
             alerts.append(('INFO', 'STOCK', f'{s}: closing stock mentok di MAX band ({C["cs_max"][s]:,.0f}).'))
         if abs(sol['closing'][s] - C['cs_min'][s]) < 1:
             alerts.append(('INFO', 'STOCK', f'{s}: closing stock mentok di MIN band ({C["cs_min"][s]:,.0f}).'))

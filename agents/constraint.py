@@ -72,14 +72,11 @@ def build(manifest: dict, data: dict, overrides: dict = None, settings: dict = N
                        f'Min total shipment {C["cap_total_min"]:,.0f} > total plan kapasitas {total_cap:,.0f} (mustahil).'))
     if C.get('cap_total_max') is not None:
         cmax = C['cap_total_max']; total_deal = sum(deal.values())
-        min_forced = sum(max(0.0, avail[s] - csb[s]['max']) for s in sites)  # M9: ship >= available - cs_max
+        # Max field = acuan utama. Satu-satunya yang mustahil: max di bawah total deal (deal wajib dipenuhi).
+        # Batas stok cs_max TIDAK memaksa minimum shipment di sini (M9 dilewati saat max di-set).
         if cmax < total_deal:
             alerts.append(('CRITICAL', 'CONSTRAINT',
                            f'Max total shipment {cmax:,.0f} < total deal {total_deal:,.0f} — deal wajib dipenuhi, tak bisa di bawah max.'))
-        elif cmax < min_forced:
-            alerts.append(('CRITICAL', 'CONSTRAINT',
-                           f'Max total shipment {cmax:,.0f} < minimum {min_forced:,.0f} yang dipaksa batas stok (closing ≤ cs_max). '
-                           f'Naikkan max, atau longgarkan cs_max per site.'))
 
     # --- settings kualitas (opsional, di-gate 'enabled'): CV + TS/Ash/Na2O + quality reward ---
     if settings and settings.get('enabled'):
