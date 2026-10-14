@@ -106,6 +106,42 @@ def _rounds():
 def _rounds_save(r):
     (DATA_DIR / 'output/rounds.json').write_text(json.dumps(r, indent=1, ensure_ascii=False))
 
+# ===== CYCLE: tiap perubahan Constraint = cycle baru; iterasi (ronde) reset per cycle =====
+def _cycle_state():
+    p = DATA_DIR / 'output/cycle.json'
+    if p.exists():
+        try: return json.loads(p.read_text())
+        except Exception: pass
+    return {'cycle': 1, 'hash': None}
+
+def _cycle_state_save(d):
+    (DATA_DIR / 'output/cycle.json').write_text(json.dumps(d, ensure_ascii=False))
+
+def _cycle_now():
+    return _cycle_state().get('cycle', 1)
+
+def _cycle_hash(settings):
+    """Hash bagian constraint yang relevan — pembeda apakah constraint benar-benar berubah."""
+    key = json.dumps({k: (settings or {}).get(k) for k in
+                      ('enabled', 'quality_margin_cv', 'quality_reward', 'cv', 'ts', 'ash', 'na2o',
+                       'capacity', 'site_assay')}, sort_keys=True, ensure_ascii=False)
+    return _h.sha1(key.encode()).hexdigest()[:16]
+
+def _cycle_bump_if_changed(settings):
+    """Simpan Constraint dengan nilai berubah → cycle += 1 (iterasi reset ke 1).
+    Simpan pertama (belum ada hash) = tetapkan cycle saat ini tanpa menaikkan."""
+    h = _cycle_hash(settings); st = _cycle_state()
+    if st.get('hash') is None:
+        st['hash'] = h
+    elif h != st['hash']:
+        st['cycle'] = st.get('cycle', 1) + 1; st['hash'] = h
+    _cycle_state_save(st)
+    return st['cycle']
+
+def _cycle_iter(rounds, cyc):
+    """Iterasi ke-berapa dalam cycle ini (reset per cycle)."""
+    return sum(1 for r in rounds if r.get('cycle') == cyc) + 1
+
 def _chosen():
     """Opsi (A/B/C) yang DISETUJUI validator untuk run terakhir — agar menu Revenue/Blending
     selaras dengan opsi terpilih, bukan solve baseline."""
@@ -143,16 +179,18 @@ def _history_html():
                if ch and ch['aksi'] == 'approve' else
                (f"<b style='color:#ffb3b1'>Ditolak</b> — {ch.get('catatan','')}" if ch else
                 "<span style='color:#f6cf86'>menunggu validasi</span>"))
-        rows += (f"<tr><td>Ronde {r['no']}</td><td style='text-align:left'>{r['sumber']}</td>"
+        cyc = r.get('cycle', 1); it = r.get('iter', r.get('no'))
+        rows += (f"<tr><td style='text-align:center'><b>{cyc}</b></td><td>Iterasi {it}</td>"
+                 f"<td style='text-align:left'>{r['sumber']}</td>"
                  f"<td style='text-align:left;font-size:11px'>{opsi}</td>"
                  f"<td style='text-align:left'>{pil}</td><td>{r['ts'][:16].replace('T',' ')}</td></tr>")
     if not rows: return ''
-    return ("<h2>Riwayat Ronde &amp; Keputusan</h2>"
-            "<table><tr><th>Ronde</th><th style='text-align:left'>Sumber Demand</th>"
+    return ("<h2>Riwayat Cycle &amp; Iterasi</h2>"
+            "<table><tr><th>Cycle</th><th>Iterasi</th><th style='text-align:left'>Sumber Demand</th>"
             "<th style='text-align:left'>Opsi &amp; Revenue</th><th style='text-align:left'>Keputusan Validator</th>"
             "<th>Waktu</th></tr>" + rows + "</table>"
-            "<p class='mut' style='font:11px monospace'>Setiap demand baru = ronde blending baru — "
-            "validator menilai feasibilitas jual, bukan hanya revenue tertinggi. Arsip lengkap: output/rounds.json</p>")
+            "<p class='mut' style='font:11px monospace'>Ubah Constraint = <b>Cycle baru</b> (iterasi reset ke 1). "
+            "Tiap simulasi/koreksi dalam cycle = iterasi berikutnya. Semua terekam untuk pembelajaran AI. Arsip: output/rounds.json</p>")
 
 def _synth_files_from_last(demand_file):
     """Ronde demand-baru: 3 sumber lain dibawa dari data valid terakhir, demand diganti file baru."""
@@ -217,10 +255,12 @@ def run_pipeline(files, sumber_demand=None):
                     'brand_total': sc['sol']['brand_total'] if sc['sol'] else None,
                     'closing': sc['sol']['closing'] if sc['sol'] else None}
          for sc in scenarios}, indent=1, ensure_ascii=False))
-    # catat RONDE baru (histori opsi)
+    # catat RONDE baru (histori opsi) + CYCLE/ITERASI (iterasi reset per cycle)
     import datetime as _dt
     rounds = _rounds()
-    rounds.append({'no': len(rounds) + 1, 'ts': _dt.datetime.now().isoformat(timespec='seconds'),
+    _cyc = _cycle_now(); _it = _cycle_iter(rounds, _cyc)
+    rounds.append({'no': len(rounds) + 1, 'cycle': _cyc, 'iter': _it,
+                   'ts': _dt.datetime.now().isoformat(timespec='seconds'),
                    'user': session.get('user', 'tester'), 'run_id': st['run_id'],
                    'sumber': sumber_demand or ('fixtures simulasi' if use_fixtures else f'{n_upload} file input'),
                    'opsi': {sc['id']: {'nama': sc['nama'], 'revenue': sc['revenue']} for sc in scenarios},
@@ -228,10 +268,10 @@ def run_pipeline(files, sumber_demand=None):
     _rounds_save(rounds)
     # PERSIST: tiap run AI blending -> history ronde + opsi ke DB; refresh tabel Metabase input
     db.record_run(st['run_id'], len(rounds), session.get('user', 'tester'), _sumber,
-                  st['node_terakhir'], scenarios, len(st['alerts']))
+                  st['node_terakhir'], scenarios, len(st['alerts']), cycle=_cyc)
     db.refresh_business_process(st.get('data'), C)
     html = synthesizer.render_review(scenarios, C, st['alerts'], calib=_load_calib(),   # Agent 4 (review HITL)
-                                     meta=f"RONDE {len(_rounds())} · run {st['run_id']} · validator: {session.get('user','tester')} · lineage: {len(st['lineage']['files'])} file (sha256 tercatat)")
+                                     meta=f"CYCLE {_cyc} · ITERASI {_it} · run {st['run_id']} · validator: {session.get('user','tester')} · lineage: {len(st['lineage']['files'])} file (sha256 tercatat)")
     html = html.replace('</body>', f"<div style='max-width:1180px'>{_history_html()}</div></body>")
     (DATA_DIR / 'output/dashboard.html').write_text(html)
     return html
@@ -446,6 +486,7 @@ def constraints():
                 d['max'] = fnum(f'{dim}_max_{b}', None)
         cset.save(s)                                   # simpan file JSON (fallback lokal)
         db_ok = db.save_constraints(s, session['user'])  # UPDATE tabel Postgres (Aiven)
+        _cycle_bump_if_changed(s)                       # constraint berubah → CYCLE baru (iterasi reset)
         SETTINGS = cset.load(MANIFEST)                  # reload (dari DB bila terhubung)
         return constraints_page.render(SETTINGS, MANIFEST, saved=True, db_ok=db_ok)
     return constraints_page.render(SETTINGS, MANIFEST)

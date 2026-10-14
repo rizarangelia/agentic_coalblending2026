@@ -221,6 +221,7 @@ def init():
             cur.execute(SCHEMA)
             cur.execute(_EXISTING_DDL)
             cur.execute(SCHEMA_TS)
+            cur.execute("ALTER TABLE coalblend_runs ADD COLUMN IF NOT EXISTS cycle integer")  # migrasi: Cycle
         conn.commit()
         _log("Skema Postgres siap (history + existing + time-series).")
         seed_demo()  # isi dummy bila tabel insight/history kosong
@@ -284,14 +285,14 @@ def record_upload(run_id, username, sumber, lineage, data):
     return _safe(op)
 
 
-def record_run(run_id, round_no, username, sumber, node_terakhir, scenarios, n_alerts):
-    """Simpan satu ronde blending + ringkasan tiap opsi (A/B/C + revenue)."""
+def record_run(run_id, round_no, username, sumber, node_terakhir, scenarios, n_alerts, cycle=None):
+    """Simpan satu ronde blending + ringkasan tiap opsi (A/B/C + revenue). cycle = nomor Cycle."""
     def op(conn):
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO coalblend_runs (run_id, round_no, username, sumber, node_terakhir, n_alerts)"
-                " VALUES (%s,%s,%s,%s,%s,%s)",
-                (run_id, round_no, username, sumber, node_terakhir, n_alerts))
+                "INSERT INTO coalblend_runs (run_id, round_no, cycle, username, sumber, node_terakhir, n_alerts)"
+                " VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                (run_id, round_no, cycle, username, sumber, node_terakhir, n_alerts))
             for sc in (scenarios or []):
                 sol = sc.get('sol')
                 cur.execute(
