@@ -407,7 +407,18 @@ def _last_state():
     return {'user': session.get('user', 'tester'), 'run_id': '-', 'sumber': 'fixtures simulasi',
             'data': data, 'alerts': a1}
 
+_SOLVE_MEMO = {}  # memo hasil solve per (data + settings + override) — hindari re-solve tiap load/poll
+
 def _solve_from(data, deal_override=None):
+    # cache: input sama (data, SETTINGS, override) -> solusi sama. Monitoring poll /3dtk & reload
+    # Dashboard dengan state tak berubah langsung pakai hasil memo (tak solve ulang). Ganti settings
+    # atau data (run baru) -> kunci berubah -> solve ulang (tetap konsisten).
+    key = _h.sha1((json.dumps(data, sort_keys=True, default=str)
+                   + json.dumps(SETTINGS, sort_keys=True, default=str)
+                   + json.dumps(deal_override or {}, sort_keys=True, default=str)).encode()).hexdigest()
+    cached = _SOLVE_MEMO.get(key)
+    if cached is not None:
+        return cached
     if deal_override:
         data = json.loads(json.dumps(data))
         for b, v in deal_override.items():
@@ -415,9 +426,14 @@ def _solve_from(data, deal_override=None):
                 data['demand_deal'][b]['volume_deal_mt'] = float(v)
     C, a2 = constraint.build(MANIFEST, data, settings=SETTINGS)
     if any(s == 'CRITICAL' for s, _, _ in a2):
-        return None, C, a2
-    sol, a3 = optimizer.solve(C)
-    return sol, C, a2 + a3
+        res = (None, C, a2)
+    else:
+        sol, a3 = optimizer.solve(C)
+        res = (sol, C, a2 + a3)
+    if len(_SOLVE_MEMO) > 16:
+        _SOLVE_MEMO.clear()
+    _SOLVE_MEMO[key] = res
+    return res
 
 def _alert_objs(alerts):
     ackp = DATA_DIR / 'output/alerts_ack.json'

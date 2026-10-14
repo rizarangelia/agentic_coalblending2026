@@ -335,7 +335,8 @@ def record_run(run_id, round_no, username, sumber, node_terakhir, scenarios, n_a
                     " VALUES (%s,%s,%s,%s,%s,%s,%s)",
                     (run_id, round_no, sc.get('id'), sc.get('nama'), sc.get('revenue'),
                      (sol or {}).get('total_ship'), sol is not None))
-    return _safe(op)
+    r = _safe(op); _bust_insights()  # data baru → segarkan cache insights
+    return r
 
 
 def record_decision(run_id, round_no, validator, scenario_id, aksi, catatan, revenue):
@@ -347,7 +348,8 @@ def record_decision(run_id, round_no, validator, scenario_id, aksi, catatan, rev
                 " (run_id, round_no, validator, scenario_id, aksi, catatan, revenue)"
                 " VALUES (%s,%s,%s,%s,%s,%s,%s)",
                 (run_id, round_no, validator, scenario_id, aksi, catatan, revenue))
-    return _safe(op)
+    r = _safe(op); _bust_insights()  # keputusan baru → segarkan cache insights
+    return r
 
 
 def record_blending_history(run_id, round_no, scenario_id, validator, sol, C):
@@ -626,21 +628,66 @@ def _fetch(sql, params=()):
             except Exception: pass
 
 
+def _fetch_multi(queries):
+    """Jalankan beberapa SELECT dalam SATU koneksi (hemat handshake). queries = list of (sql, params).
+    Return list hasil (tiap elemen list-of-dict), atau None bila gagal."""
+    conn = None
+    try:
+        conn = _connect()
+        out = []
+        for sql, params in queries:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                cols = [c.name for c in cur.description]
+                out.append([{c: _iso(v) for c, v in zip(cols, r)} for r in cur.fetchall()])
+        return out
+    except Exception as e:
+        _log(f"_fetch_multi gagal: {e!r}")
+        return None
+    finally:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+
+
+# cache in-memory TTL untuk insights (per-instance; di-bust saat ada run/keputusan baru)
+_INSIGHTS_CACHE = {'ts': 0.0, 'data': None}
+_INSIGHTS_TTL = 30.0  # detik
+
+def _bust_insights():
+    _INSIGHTS_CACHE['data'] = None
+
+
 def insights():
     """Kumpulan insight untuk grafik dashboard. Dari Postgres bila terhubung,
-    selain itu dummy in-memory (label 'contoh') agar grafik tetap tampil."""
+    selain itu dummy in-memory (label 'contoh'). Cache TTL + 1 koneksi untuk semua query."""
+    import time as _t
+    now = _t.time()
+    if _INSIGHTS_CACHE['data'] is not None and (now - _INSIGHTS_CACHE['ts']) < _INSIGHTS_TTL:
+        return _INSIGHTS_CACHE['data']
+    data = _insights_compute()
+    _INSIGHTS_CACHE['data'] = data
+    _INSIGHTS_CACHE['ts'] = now
+    return data
+
+
+def _insights_compute():
     if enabled():
-        rev = _fetch("SELECT round_no, max(revenue) AS revenue, min(created_at) AS ts"
-                     " FROM coalblend_run_scenarios GROUP BY round_no ORDER BY round_no")
-        daily = _fetch("SELECT stat_date, site, sum(shipment_mt) AS shipment"
-                       " FROM coalblend_daily_stats GROUP BY stat_date, site ORDER BY stat_date, site")
-        dec = _fetch("SELECT aksi, count(*) AS n FROM coalblend_decisions GROUP BY aksi")
-        ves = _fetch("SELECT vessel_name, buyer, brand, capacity_mt, eta, laycan_start, laycan_end, status"
-                     " FROM coalblend_vessels ORDER BY eta")
-        if rev is not None and daily is not None:
-            return {'source': 'postgres', 'revenue_trend': rev, 'daily_shipment': daily,
-                    'decisions': dec or [], 'vessels': ves or [],
-                    'sites': [s[0] for s in _SEED_SITES]}
+        res = _fetch_multi([
+            ("SELECT round_no, max(revenue) AS revenue, min(created_at) AS ts"
+             " FROM coalblend_run_scenarios GROUP BY round_no ORDER BY round_no", ()),
+            ("SELECT stat_date, site, sum(shipment_mt) AS shipment"
+             " FROM coalblend_daily_stats GROUP BY stat_date, site ORDER BY stat_date, site", ()),
+            ("SELECT aksi, count(*) AS n FROM coalblend_decisions GROUP BY aksi", ()),
+            ("SELECT vessel_name, buyer, brand, capacity_mt, eta, laycan_start, laycan_end, status"
+             " FROM coalblend_vessels ORDER BY eta", ()),
+        ])
+        if res is not None:
+            rev, daily, dec, ves = res
+            if rev is not None and daily is not None:
+                return {'source': 'postgres', 'revenue_trend': rev, 'daily_shipment': daily,
+                        'decisions': dec or [], 'vessels': ves or [],
+                        'sites': [s[0] for s in _SEED_SITES]}
     # fallback in-memory
     daily = [{'stat_date': r['stat_date'].isoformat(), 'site': r['site'], 'shipment': r['shipment_mt']}
              for r in _gen_daily()]
