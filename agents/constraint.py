@@ -57,7 +57,31 @@ def build(manifest: dict, data: dict, overrides: dict = None, settings: dict = N
         'cs_max': {s: csb[s]['max'] for s in sites},
         'total_capacity': total_cap, 'jetty_capacity': jetty,  # jetty = warning check saja
     }
-    # --- settings menu Constraints (opsional): quality-safe CV + TS/Ash/Na2O + capacity ---
+    # --- Capacity total min/max = batas TOTAL SHIPMENT (hard limit bisnis) ---
+    # Berlaku WALAU 'enabled' OFF: bila planner mengisi min/max, nilai itu WAJIB ditegakkan.
+    if settings:
+        cap = settings.get('capacity') or {}
+        tmin, tmax = cap.get('total_min'), cap.get('total_max')
+        if tmin not in (None, '', 0):
+            C['cap_total_min'] = float(tmin)
+        if tmax not in (None, ''):
+            C['cap_total_max'] = float(tmax)
+    # pre-solve sanity capacity — beri ALASAN jelas sebelum solver (orchestrator berhenti di ALERT)
+    if C.get('cap_total_min', 0) > total_cap:
+        alerts.append(('CRITICAL', 'CONSTRAINT',
+                       f'Min total shipment {C["cap_total_min"]:,.0f} > total plan kapasitas {total_cap:,.0f} (mustahil).'))
+    if C.get('cap_total_max') is not None:
+        cmax = C['cap_total_max']; total_deal = sum(deal.values())
+        min_forced = sum(max(0.0, avail[s] - csb[s]['max']) for s in sites)  # M9: ship >= available - cs_max
+        if cmax < total_deal:
+            alerts.append(('CRITICAL', 'CONSTRAINT',
+                           f'Max total shipment {cmax:,.0f} < total deal {total_deal:,.0f} — deal wajib dipenuhi, tak bisa di bawah max.'))
+        elif cmax < min_forced:
+            alerts.append(('CRITICAL', 'CONSTRAINT',
+                           f'Max total shipment {cmax:,.0f} < minimum {min_forced:,.0f} yang dipaksa batas stok (closing ≤ cs_max). '
+                           f'Naikkan max, atau longgarkan cs_max per site.'))
+
+    # --- settings kualitas (opsional, di-gate 'enabled'): CV + TS/Ash/Na2O + quality reward ---
     if settings and settings.get('enabled'):
         cvs = settings.get('cv') or {}
         margin = float(settings.get('quality_margin_cv') or 0)   # buffer global: CV min >= reject + margin
@@ -78,14 +102,5 @@ def build(manifest: dict, data: dict, overrides: dict = None, settings: dict = N
                 bd = settings.get(dim) or {}
                 C[f'{dim}_max'] = {b: float((bd.get(b) or {}).get('max')) for b in brands if (bd.get(b) or {}).get('max') is not None}
                 C[f'{dim}_min'] = {b: float((bd.get(b) or {}).get('min')) for b in brands if (bd.get(b) or {}).get('min')}
-        cap = settings.get('capacity') or {}
-        if cap.get('total_min'):
-            C['cap_total_min'] = float(cap['total_min'])
-        if cap.get('total_max'):
-            C['cap_total_max'] = float(cap['total_max'])
         C['quality_reward'] = float(settings.get('quality_reward') or 0)
-        # pre-solve sanity untuk capacity min
-        if C.get('cap_total_min', 0) > total_cap:
-            alerts.append(('CRITICAL', 'CONSTRAINT',
-                           f'Capacity min {C["cap_total_min"]:,.0f} > total plan kapasitas {total_cap:,.0f} (mustahil).'))
     return C, alerts

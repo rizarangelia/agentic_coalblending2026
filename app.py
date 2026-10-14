@@ -607,17 +607,8 @@ def api_state():
     if not logged_in(): return {'error': 'unauthorized'}, 401
     st = _last_state()
     sol, C, alerts = _solve_from(st['data'])
-    # ROBUST: bila infeasible dengan Constraint Settings (mis. Quality margin terlalu ketat
-    # untuk data ini), fallback ke solve BASELINE tanpa settings agar dashboard tetap tampil.
-    if sol is None:
-        baseC, _ba = constraint.build(MANIFEST, st['data'])
-        bsol, _ba2 = optimizer.solve(baseC)
-        if bsol is not None:
-            sol, C = bsol, baseC
-            alerts = (alerts or []) + [('WARNING', 'CONSTRAINT',
-                'Constraint Settings saat ini membuat solve INFEASIBLE untuk data ini — '
-                'menampilkan solusi BASELINE (tanpa settings). Longgarkan Quality margin / CV min '
-                'di menu Constraint Settings lalu jalankan ulang.')]
+    # Infeasible (mis. total shipment melebihi Max, atau Quality margin terlalu ketat) TIDAK
+    # ditutupi: solution=null + alerts berisi alasan, agar batas constraint benar-benar dihormati.
     # SELARAS OPSI TERPILIH: bila validator sudah approve opsi (A/B/C) utk run ini,
     # tampilkan solusi opsi tsb (CV blending/kontrak selaras), bukan solve baseline.
     opsi_meta = None
