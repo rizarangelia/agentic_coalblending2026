@@ -611,6 +611,13 @@ def api_monitoring():
     from agents import monitoring
     st = _last_state()
     sol, C, _ = _solve_from(st['data'])
+    # Live Operations tidak boleh 0: bila solve dengan Constraint Settings infeasible,
+    # fallback ke solve BASELINE dari data valid terakhir agar monitoring tetap berangka.
+    if sol is None:
+        baseC, _b = constraint.build(MANIFEST, st['data'])
+        bsol, _b2 = optimizer.solve(baseC)
+        if bsol is not None:
+            sol, C = bsol, baseC
     sites_state = []
     for s in C['sites']:
         ship = (sol or {}).get('site_ship', {}).get(s, 0) if sol else 0
