@@ -653,9 +653,12 @@ def save_constraints(settings, username='planner'):
             for s, a in (settings.get('site_assay') or {}).items():
                 for dim in ('ts', 'ash', 'na2o'):
                     rows.append((username, 'assay_' + dim, s, 'value', (a or {}).get(dim)))
-            cur.executemany(
-                "INSERT INTO coalblend_constraint_params (username,category,entity,param,value)"
-                " VALUES (%s,%s,%s,%s,%s)", rows)
+            # BULK INSERT: semua baris param dalam SATU statement (bukan 86 round-trip).
+            from psycopg2.extras import execute_values
+            execute_values(
+                cur,
+                "INSERT INTO coalblend_constraint_params (username,category,entity,param,value) VALUES %s",
+                rows, page_size=len(rows) or 1)
     return _safe(op)
 
 
