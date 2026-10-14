@@ -4,25 +4,20 @@ Catatan hal-hal yang **sengaja dibiarkan apa adanya sekarang**, sebagai bahan ev
 
 ---
 
-## 1. Cold-start menjalankan `db.init()` + `seed_demo()` (prioritas: sedang) — BELUM diterapkan
+## 1. Cold-start `db.init()` + `seed_demo()` (prioritas: sedang) — ✅ SUDAH diterapkan (guarded ensure_ready)
 
-**Kondisi sekarang**
-`app.py` memanggil `db.init()` di level import (saat modul dimuat). Di serverless (Vercel), ini berarti **setiap cold-start** (instance baru) menjalankan:
-- `_connect()` ke Aiven (SSL handshake) untuk DDL,
-- `CREATE TABLE IF NOT EXISTS …` (no-op bila tabel sudah ada), `ALTER TABLE … ADD COLUMN IF NOT EXISTS …`,
-- `seed_demo()` → `_connect()` kedua + **4× `SELECT COUNT`** lalu skip insert karena tabel sudah berisi.
+**Dulu**
+`app.py` memanggil `db.init()` penuh di import → tiap cold-start membuka 1–2 koneksi Aiven + `CREATE TABLE IF NOT EXISTS …` + `ALTER …` + `seed_demo()` (4× `SELECT COUNT`), padahal skema & data sudah ada. Mubazir.
 
-**Masalah**
-Mubazir ketika skema & data **sudah ada**: menambah 1–2 koneksi Aiven + beberapa query **sebelum** request pertama diproses → request pertama tiap instance dingin terasa lebih lambat. Ini **bukan** terkait login; murni siklus hidup instance.
+**Sekarang**
+`app.py` memanggil `db.ensure_ready()` (bukan `db.init()`):
+- **struktur sudah ada** → hanya **1 query cek ringan** (`information_schema`), lalu langsung pakai DB (skip DDL + seed).
+- **struktur belum ada** (deploy awal / DB baru) → `init()` penuh jalan **sekali**.
+- guard `_READY` per-instance mencegah cek berulang; jalur simpan constraint tidak pernah memanggil init.
 
-**Usulan (manual init)**
-- Hapus pemanggilan `db.init()` otomatis di import (`app.py`).
-- Tambah endpoint terlindungi sekali-jalan, mis. `GET /api/dbinit` (perlu login) yang menjalankan `db.init()` + `seed_demo()` on-demand.
-- Admin menjalankannya **sekali** setelah DB dibuat; cold-start berikutnya tidak lagi menyentuh DB untuk init/seed.
-
-**Catatan keamanan**
-- Aman diterapkan karena DB produksi saat ini sudah lengkap (skema + data).
-- Bila suatu saat DB dibuat ulang dari nol: cukup buka `/api/dbinit` sekali. Error tulis saat skema belum ada sudah ditangani `_safe` (tidak membuat app crash); pembacaan state jatuh ke fixtures.
+**Caveat yang perlu diingat**
+- **Migrasi skema baru (ALTER/CREATE kolom-tabel baru) tidak lagi auto-jalan** di cold-start untuk DB yang strukturnya sudah ada. Setelah menambah kolom/tabel baru di kode, jalankan `init()` **manual sekali** (mis. lewat endpoint one-off `GET /api/dbinit` bila nanti dibuat, atau script) agar migrasi ter-apply.
+- Untuk benar-benar 0 DB-call di cold-start, init bisa dijadikan langkah build/deploy — belum dilakukan (manfaat kecil vs kompleksitas).
 
 ---
 

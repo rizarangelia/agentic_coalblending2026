@@ -235,6 +235,40 @@ def init():
             except Exception: pass
 
 
+_READY = False
+
+def _structure_exists():
+    """Cek murah (1 query ringan): apakah tabel inti sudah ada di DB?"""
+    try:
+        rows = _fetch("SELECT 1 FROM information_schema.tables"
+                      " WHERE table_schema='public' AND table_name='coalblend_constraints' LIMIT 1")
+        return bool(rows)
+    except Exception:
+        return False
+
+def ensure_ready():
+    """Pastikan DB siap TANPA mengulang DDL+seed tiap cold-start (dipanggil saat import app).
+    - struktur sudah ada → langsung pakai DB (skip init/seed), hanya 1 query cek ringan.
+    - struktur belum ada → init() penuh SEKALI (deploy awal / DB baru).
+    Guard _READY: dalam satu instance tak mengecek berulang.
+    CATATAN: migrasi skema baru (ALTER) tidak lagi auto-jalan di cold-start untuk DB yang
+    strukturnya sudah ada — jalankan init() manual sekali setelah menambah kolom/tabel baru."""
+    global _READY
+    if _READY:
+        return True
+    if not enabled():
+        _log("DATABASE_URL belum di-set — persistensi Postgres NONAKTIF (pakai file JSON).")
+        _READY = True
+        return False
+    if _structure_exists():
+        _READY = True
+        return True
+    _log("Struktur DB belum ada — menjalankan init() penuh (deploy awal / DB baru).")
+    ok = init()
+    _READY = True
+    return ok
+
+
 def _safe(fn):
     """Jalankan operasi tulis; tangkap semua error agar web flow tak pernah putus."""
     global _WARNED

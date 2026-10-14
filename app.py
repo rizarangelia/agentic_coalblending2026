@@ -24,7 +24,7 @@ SETTINGS = cset.load(MANIFEST)  # quality-safe default; diedit lewat /constraint
 app = Flask(__name__)
 # produksi (Railway): set SECRET_KEY di env; fallback demo untuk dev lokal
 app.secret_key = os.environ.get('SECRET_KEY', 'coalblend-mvp1-demo')
-db.init()  # siapkan skema Postgres (no-op aman bila DATABASE_URL belum di-set)
+db.ensure_ready()  # cek ringan skema sekali; init() penuh HANYA bila struktur belum ada (hemat cold-start)
 
 PAGE = """<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>body{background:#1a1a19;color:#f0efec;font:14px 'IBM Plex Sans',sans-serif;display:flex;justify-content:center;padding-top:60px}
