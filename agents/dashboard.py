@@ -120,6 +120,10 @@ a.btn{background:var(--g);color:#ffffff;font:700 12px 'IBM Plex Sans';padding:8p
 <a href="#" class="on nsub" data-s="ov">📊 Dashboard</a>
 <a href="#" class="nsub" data-s="rv">💰 Revenue</a>
 <a href="#" class="nsub" data-s="ins">📈 Trend Data <span style="font-size:8px;color:var(--b)">DB</span></a></div>
+<div class="navgroup" data-g="cons" onclick="tgGrp(this)"><span class="caret">▾</span>⚙️ Constraint</div>
+<div class="navsub">
+<a href="#" class="nsub" data-s="ap">📦 Available Product</a>
+<a href="/constraints" class="nsub">⚙️ Constraint</a></div>
 <div class="navgroup" data-g="ai" onclick="tgGrp(this)"><span class="caret">▾</span>🧠 AI Co-Pilot &amp; Workflow</div>
 <div class="navsub">
 <a href="/input" class="nsub">⬆️ Input Data</a>
@@ -127,10 +131,6 @@ a.btn{background:var(--g);color:#ffffff;font:700 12px 'IBM Plex Sans';padding:8p
 <a href="/review" class="nsub">✅ Review &amp; Validasi</a>
 <a href="#" class="nsub" data-s="pi">💡 Price Intel <span style="font-size:8px;color:var(--a)">MVP2</span></a>
 <a href="#" class="nsub" data-s="si">🚢 Stock Intel <span style="font-size:8px;color:var(--a)">MVP3</span></a></div>
-<div class="navgroup" data-g="cons" onclick="tgGrp(this)"><span class="caret">▾</span>⚙️ Constraint</div>
-<div class="navsub">
-<a href="#" class="nsub" data-s="ap">📦 Available Product</a>
-<a href="/constraints" class="nsub">⚙️ Constraint</a></div>
 <a href="/logout" style="margin-top:9px">↩︎ Logout</a></div>
 <div class="foot">Model 1–9 v1.1 · Solver CBC<br>angka 100% dari solver</div></aside>
 <main>
